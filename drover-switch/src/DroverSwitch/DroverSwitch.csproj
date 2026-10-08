@@ -20,4 +20,12 @@
     <PackageReference Include="H.NotifyIcon.Wpf" Version="2.4.1" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Fetched by the CI workflow from the upstream hdrover/discord-drover release before build
+         (see .github/workflows/drover-switch-build.yml) so DroverInstaller can deploy it on first
+         run. Condition means a local build without that fetch step still compiles fine - auto-
+         install just silently does nothing until the resource is actually present. -->
+    <EmbeddedResource Include="Resources\version.dll" Condition="Exists('Resources\version.dll')" />
+  </ItemGroup>
+
 </Project>

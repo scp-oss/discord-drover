@@ -25,6 +25,7 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
     private int _consecutiveActiveFailures;
     private DateTime _lastAllOfflineNotification = DateTime.MinValue;
     private DateTime _lastMirrorWriteUtc = DateTime.MinValue;
+    private bool _droverJustAutoInstalled;
 
     public ObservableCollection<ProfileItemViewModel> Profiles { get; } = new();
 
@@ -43,6 +44,7 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
     public TrayViewModel()
     {
         _settings = SettingsStore.Load();
+        EnsureDroverInstalledEverywhere();
         ImportFromCompanionFileIfPresent();
         RebuildProfilesCollection();
         SaveAndMirror();
@@ -76,6 +78,9 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
 
     public void Start()
     {
+        if (_droverJustAutoInstalled)
+            NotificationRequested?.Invoke("Discord Drover установлен автоматически.");
+
         _timer.Start();
         _ = RunCheckCycleAsync();
     }
@@ -235,29 +240,65 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
 
     private void ActivateInternal(ProfileItemViewModel item, bool notifyAuto)
     {
-        var installedDirs = DiscordLocator.FindDroverInstalledDirs(DiscordLocator.FindDiscordDirs());
-
-        if (installedDirs.Count == 0)
+        var allDirs = DiscordLocator.FindDiscordDirs();
+        if (allDirs.Count == 0)
         {
             MessageBox.Show(
-                "Не найдена папка Discord с установленным Discord Drover (version.dll). " +
-                "Сначала установите Drover через drover.exe.",
+                "Discord не найден на этом компьютере.",
                 "Discord Drover",
                 MessageBoxButton.OK,
                 MessageBoxImage.Warning);
             return;
         }
 
-        DroverIniService.WriteProxyToAllDirs(installedDirs, item.ProxyUrl);
+        // version.dll is locked by Discord for as long as it's running (Windows won't let it be
+        // deleted or overwritten), and swapping it out from under a live process is exactly what
+        // was hanging the client/voice before - only reinstall it when Discord is confirmed
+        // closed. drover.ini itself is a plain file drover only reads once at its own startup, so
+        // rewriting it is always safe and is what makes the switch "ready for next launch" even
+        // while Discord is still open right now.
+        var discordClosed = !DiscordLocator.IsAnyDiscordRunning();
+
+        foreach (var dir in allDirs)
+            DroverInstaller.EnsureInstalled(dir);
+
+        if (discordClosed)
+        {
+            foreach (var dir in allDirs)
+                DroverInstaller.Uninstall(dir);
+        }
+
+        DroverIniService.WriteProxyToAllDirs(allDirs, item.ProxyUrl);
+
+        if (discordClosed)
+        {
+            foreach (var dir in allDirs)
+                DroverInstaller.Reinstall(dir);
+        }
 
         SetActiveProfileName(item.Name);
-        SaveAndMirror(installedDirs);
+        SaveAndMirror(allDirs);
 
         foreach (var p in Profiles)
             p.IsActive = p.Name.Equals(item.Name, StringComparison.OrdinalIgnoreCase);
 
         if (notifyAuto)
             NotificationRequested?.Invoke($"Автоматически переключено на «{item.Name}».");
+    }
+
+    /// <summary>Installs version.dll into every discovered Discord folder that doesn't have it yet -
+    /// called once at startup so the user never has to run drover.exe's own installer by hand.
+    /// Only ever creates missing files, so it's safe even while Discord is running. Runs from the
+    /// constructor (before anyone could've subscribed to NotificationRequested yet), so it just
+    /// records whether anything was installed and Start() raises the toast once a subscriber exists.</summary>
+    private void EnsureDroverInstalledEverywhere()
+    {
+        foreach (var dir in DiscordLocator.FindDiscordDirs())
+        {
+            var alreadyHadIt = File.Exists(Path.Combine(dir, DiscordLocator.DllFileName));
+            if (DroverInstaller.EnsureInstalled(dir) && !alreadyHadIt)
+                _droverJustAutoInstalled = true;
+        }
     }
 
     private async Task RunCheckCycleAsync()
