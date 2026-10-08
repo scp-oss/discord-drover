@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using System.IO;
+using System.Net.Security;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading;
@@ -9,9 +10,13 @@ using System.Threading;
 namespace DroverSwitch.Services;
 
 /// <summary>
-/// Tests whether Discord is actually reachable through a given proxy, by opening a real tunnel
-/// to a Discord endpoint - an HTTP CONNECT for http proxies, a SOCKS5 handshake for socks5 ones,
-/// or a plain TCP connect for "Direct". This is a connectivity probe only; no Discord traffic is sent.
+/// Tests whether Discord is actually reachable through a given proxy. Opens a real tunnel to
+/// discord.com (an HTTP CONNECT for http proxies, a SOCKS5 handshake for socks5 ones, or a plain
+/// TCP connect for "Direct"), then does a genuine TLS handshake and HTTP request over it - some
+/// proxies answer "200 Connection established" optimistically without the upstream connection
+/// actually working, and DPI-based blocking often lets a bare TCP/CONNECT through but resets the
+/// connection once it sees the TLS ClientHello's SNI. A successful handshake + HTTP response is
+/// the only way to tell those apart from a proxy that genuinely reaches Discord.
 /// </summary>
 public static class ProxyHealthChecker
 {
@@ -47,7 +52,7 @@ public static class ProxyHealthChecker
     {
         using var tcp = new TcpClient();
         await tcp.ConnectAsync(ProbeHost, ProbePort, ct);
-        return tcp.Connected;
+        return await VerifyTunnelAsync(tcp.GetStream(), ct);
     }
 
     private static async Task<bool> CheckHttpConnectAsync(ParsedProxy proxy, CancellationToken ct)
@@ -71,9 +76,22 @@ public static class ProxyHealthChecker
         await stream.WriteAsync(requestBytes, ct);
 
         var statusLine = await ReadLineAsync(stream, ct);
-        // "HTTP/1.1 200 Connection established" (or 200 OK) means the tunnel is open.
+        // "HTTP/1.1 200 Connection established" (or 200 OK) means the proxy is willing to tunnel -
+        // not proof that the tunnel actually reaches Discord; some proxies answer this immediately
+        // and optimistically before (or without) actually connecting upstream.
         var parts = statusLine.Split(' ', 3);
-        return parts.Length >= 2 && parts[1].StartsWith('2');
+        if (parts.Length < 2 || !parts[1].StartsWith('2'))
+            return false;
+
+        // Drain the rest of the proxy's response headers up to the blank line, so none of them
+        // end up mixed into the TLS handshake that follows.
+        string line;
+        do
+        {
+            line = await ReadLineAsync(stream, ct);
+        } while (line.Length > 0);
+
+        return await VerifyTunnelAsync(stream, ct);
     }
 
     private static async Task<bool> CheckSocks5Async(ParsedProxy proxy, CancellationToken ct)
@@ -116,7 +134,27 @@ public static class ProxyHealthChecker
         if (remaining > 0)
             await ReadExactAsync(stream, remaining, ct);
 
-        return true;
+        return await VerifyTunnelAsync(stream, ct);
+    }
+
+    /// <summary>
+    /// Proves the tunnel actually reaches Discord: a real TLS handshake (with normal certificate
+    /// validation - a blocking appliance terminating TLS itself would fail this) followed by a
+    /// minimal HTTP request/response round trip.
+    /// </summary>
+    private static async Task<bool> VerifyTunnelAsync(Stream rawStream, CancellationToken ct)
+    {
+        using var ssl = new SslStream(rawStream, leaveInnerStreamOpen: false);
+        await ssl.AuthenticateAsClientAsync(
+            new SslClientAuthenticationOptions { TargetHost = ProbeHost }, ct);
+
+        var request = Encoding.ASCII.GetBytes(
+            $"HEAD / HTTP/1.1\r\nHost: {ProbeHost}\r\nConnection: close\r\n\r\n");
+        await ssl.WriteAsync(request, ct);
+
+        var buffer = new byte[16];
+        var read = await ssl.ReadAsync(buffer, ct);
+        return read > 0;
     }
 
     private static async Task<byte[]> ReadExactAsync(Stream stream, int count, CancellationToken ct)
