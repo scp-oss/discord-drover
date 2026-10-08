@@ -6,8 +6,8 @@
     xmlns:vm="clr-namespace:DroverSwitch.ViewModels"
     xmlns:views="clr-namespace:DroverSwitch.Views"
     Title="Discord Drover"
-    MinWidth="340"
-    SizeToContent="WidthAndHeight"
+    Width="380"
+    SizeToContent="Height"
     WindowStyle="None"
     ResizeMode="NoResize"
     ShowInTaskbar="False"
@@ -187,11 +187,11 @@
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
                 <ui:Button Grid.Column="0" Content="Добавить" Icon="{ui:SymbolIcon Add24}" MinHeight="0"
-                           Padding="0,10" Command="{Binding AddProfileCommand}" Margin="0,0,5,0" />
+                           Padding="10,10" Command="{Binding AddProfileCommand}" Margin="0,0,5,0" />
                 <ui:Button Grid.Column="1" Content="Проверить" Icon="{ui:SymbolIcon ArrowSync24}" MinHeight="0"
-                           Padding="0,10" Command="{Binding RefreshNowCommand}" Margin="5,0,5,0" />
+                           Padding="10,10" Command="{Binding RefreshNowCommand}" Margin="5,0,5,0" />
                 <ui:Button Grid.Column="2" Content="Выход" Icon="{ui:SymbolIcon SignOut24}" MinHeight="0"
-                           Padding="0,10" Command="{Binding ExitCommand}" Margin="5,0,0,0" />
+                           Padding="10,10" Command="{Binding ExitCommand}" Margin="5,0,0,0" />
             </Grid>
 
             <!-- Deliberately separated and muted from the three buttons above - a rare, destructive
