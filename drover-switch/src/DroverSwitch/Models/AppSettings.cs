@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 namespace DroverSwitch.Models;
 
 public class AppSettings
