@@ -39,6 +39,7 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
     public RelayCommand RemoveProfileCommand { get; }
     public RelayCommand RefreshNowCommand { get; }
     public RelayCommand RestartDiscordCommand { get; }
+    public RelayCommand UninstallCommand { get; }
     public RelayCommand ExitCommand { get; }
 
     public TrayViewModel()
@@ -67,6 +68,7 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
         });
         RefreshNowCommand = new RelayCommand(async _ => await RunCheckCycleAsync());
         RestartDiscordCommand = new RelayCommand(_ => RestartDiscord());
+        UninstallCommand = new RelayCommand(_ => UninstallEverything());
         ExitCommand = new RelayCommand(_ => Application.Current.Shutdown());
 
         _timer = new DispatcherTimer
@@ -235,6 +237,59 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
                 try { System.Diagnostics.Process.Start(exePath); }
                 catch { /* user can relaunch Discord themselves if this fails */ }
             });
+        }
+    }
+
+    /// <summary>Full uninstall: removes drover (version.dll, drover-packet.bin, drover.ini) and
+    /// DroverSwitch's own companion file from every discovered Discord folder, plus this app's own
+    /// saved settings. version.dll is locked while Discord runs, same as during a switch, so this
+    /// needs Discord closed first - same reason, not a new rule.</summary>
+    private void UninstallEverything()
+    {
+        if (DiscordLocator.IsAnyDiscordRunning())
+        {
+            MessageBox.Show(
+                "Сначала закройте Discord — version.dll нельзя удалить, пока он запущен.",
+                "Discord Drover",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+            return;
+        }
+
+        var confirm = MessageBox.Show(
+            "Будут удалены drover.ini, version.dll, drover-packet.bin и drover-switch.ini из всех " +
+            "найденных папок Discord, а также настройки самого DroverSwitch. Discord вернётся к " +
+            "прямому соединению без прокси. Это необратимо. Продолжить?",
+            "Удалить Discord Drover",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Warning);
+        if (confirm != MessageBoxResult.Yes)
+            return;
+
+        foreach (var dir in DiscordLocator.FindDiscordDirs())
+        {
+            TryDelete(Path.Combine(dir, DiscordLocator.DllFileName));
+            TryDelete(Path.Combine(dir, DiscordLocator.OptionsFileName));
+            TryDelete(Path.Combine(dir, DiscordLocator.PacketFileName));
+            TryDelete(Path.Combine(dir, ProfilePoolFile.FileName));
+        }
+
+        SettingsStore.Delete();
+
+        MessageBox.Show("Discord Drover удалён.", "Discord Drover", MessageBoxButton.OK, MessageBoxImage.Information);
+        Application.Current.Shutdown();
+    }
+
+    private static void TryDelete(string path)
+    {
+        try
+        {
+            if (File.Exists(path))
+                File.Delete(path);
+        }
+        catch
+        {
+            // Best-effort cleanup - nothing more we can usefully do about e.g. a permissions error here.
         }
     }
 

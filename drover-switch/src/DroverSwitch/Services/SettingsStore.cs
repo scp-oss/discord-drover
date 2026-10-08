@@ -40,4 +40,19 @@ public static class SettingsStore
         var json = JsonSerializer.Serialize(settings, JsonOptions);
         File.WriteAllText(FilePath, json);
     }
+
+    /// <summary>Removes DroverSwitch's own saved state (%APPDATA%\DroverSwitch) - part of the
+    /// "delete everything drover-related" flow, so a reinstall later starts genuinely fresh.</summary>
+    public static void Delete()
+    {
+        try
+        {
+            if (Directory.Exists(Dir))
+                Directory.Delete(Dir, recursive: true);
+        }
+        catch
+        {
+            // Best-effort - the app is about to exit either way.
+        }
+    }
 }

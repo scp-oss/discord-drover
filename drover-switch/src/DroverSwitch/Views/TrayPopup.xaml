@@ -154,7 +154,8 @@
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
                     <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-                        <Ellipse Width="6" Height="6" Fill="{StaticResource AccentBrush}" Margin="0,0,8,0" />
+                        <Polygon Points="6,0 0,9 4,9 3,16 10,6 6,6" Width="10" Height="16" Stretch="Uniform"
+                                 Fill="{StaticResource AccentBrush}" Margin="0,0,8,0" VerticalAlignment="Center" />
                         <TextBlock Text="Автопереключение при недоступности" VerticalAlignment="Center"
                                    TextWrapping="Wrap" FontSize="13"
                                    Foreground="{StaticResource TextPrimaryBrush}" />
@@ -192,6 +193,13 @@
                 <ui:Button Grid.Column="2" Content="Выход" Icon="{ui:SymbolIcon SignOut24}" MinHeight="0"
                            Padding="0,10" Command="{Binding ExitCommand}" Margin="5,0,0,0" />
             </Grid>
+
+            <!-- Deliberately separated and muted from the three buttons above - a rare, destructive
+                 action shouldn't sit at the same visual weight as everyday ones. -->
+            <ui:Button Content="Удалить Discord Drover" Appearance="Transparent" MinHeight="0"
+                       FontSize="11" Foreground="{StaticResource TextSecondaryBrush}"
+                       HorizontalAlignment="Center" Padding="0,8,0,0" Margin="0,4,0,0"
+                       Command="{Binding UninstallCommand}" />
         </StackPanel>
     </Border>
 </ui:FluentWindow>
