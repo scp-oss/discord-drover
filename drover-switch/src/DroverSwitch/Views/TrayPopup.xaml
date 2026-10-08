@@ -6,8 +6,8 @@
     xmlns:vm="clr-namespace:DroverSwitch.ViewModels"
     xmlns:views="clr-namespace:DroverSwitch.Views"
     Title="Discord Drover"
-    Width="296"
-    SizeToContent="Height"
+    MinWidth="220"
+    SizeToContent="WidthAndHeight"
     WindowStyle="None"
     ResizeMode="NoResize"
     ShowInTaskbar="False"
@@ -18,7 +18,7 @@
 
     <ui:FluentWindow.Resources>
         <views:BoolToVisibilityConverter x:Key="BoolToVis" />
-        <views:ActiveToAppearanceConverter x:Key="ActiveToAppearance" />
+        <views:ActiveToBackgroundConverter x:Key="ActiveToBackground" />
     </ui:FluentWindow.Resources>
 
     <Border Padding="12" CornerRadius="8">
@@ -32,14 +32,15 @@
                 <ui:ProgressRing Grid.Column="1" Width="14" Height="14"
                                   Visibility="{Binding IsChecking, Converter={StaticResource BoolToVis}}" />
             </Grid>
-            <TextBlock Text="{Binding StatusHint}" FontSize="11" Opacity="0.65" TextWrapping="Wrap"
-                       Margin="0,0,0,8" />
+            <TextBlock Text="{Binding StatusHint}" FontSize="11" Opacity="0.65" TextWrapping="Wrap" />
+            <TextBlock Text="{Binding ActiveProfileDisplay}" FontSize="11" FontWeight="SemiBold" Opacity="0.85"
+                       Margin="0,2,0,8" />
 
             <ItemsControl ItemsSource="{Binding Profiles}" Margin="0,0,0,6">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate DataType="{x:Type vm:ProfileItemViewModel}">
-                        <ui:Button HorizontalContentAlignment="Stretch" Margin="0,1" Padding="6,5"
-                                   Appearance="{Binding IsActive, Converter={StaticResource ActiveToAppearance}}"
+                        <ui:Button HorizontalContentAlignment="Stretch" MinHeight="0" Margin="0,1" Padding="6,5"
+                                   Background="{Binding IsActive, Converter={StaticResource ActiveToBackground}}"
                                    Command="{Binding DataContext.ActivateProfileCommand, RelativeSource={RelativeSource AncestorType={x:Type ui:FluentWindow}}}"
                                    CommandParameter="{Binding}">
                             <ui:Button.ContextMenu>
@@ -58,12 +59,12 @@
                             <Grid>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
                                     <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
                                 <TextBlock Grid.Column="0" Text="{Binding LatencyText}" FontSize="11"
                                            FontWeight="SemiBold" Foreground="{Binding StatusBrush}"
-                                           MinWidth="52" TextAlignment="Right" Margin="0,0,8,0"
+                                           MinWidth="48" TextAlignment="Right" Margin="0,0,8,0"
                                            VerticalAlignment="Center" />
                                 <StackPanel Grid.Column="1" VerticalAlignment="Center">
                                     <TextBlock Text="{Binding Name}" FontWeight="Medium" FontSize="13" />
@@ -71,7 +72,7 @@
                                 </StackPanel>
                                 <ui:SymbolIcon Grid.Column="2" Symbol="Checkmark24" FontSize="14"
                                                Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}"
-                                               VerticalAlignment="Center" Margin="6,0,0,0"
+                                               VerticalAlignment="Center" Margin="8,0,0,0"
                                                Visibility="{Binding IsActive, Converter={StaticResource BoolToVis}}" />
                             </Grid>
                         </ui:Button>
@@ -96,7 +97,7 @@
                     Visibility="{Binding IsDiscordRunning, Converter={StaticResource BoolToVis}}">
                 <StackPanel>
                     <TextBlock Text="Discord сейчас запущен." FontSize="12" TextWrapping="Wrap" />
-                    <ui:Button Content="Перезапустить Discord" Command="{Binding RestartDiscordCommand}"
+                    <ui:Button Content="Перезапустить Discord" MinHeight="0" Command="{Binding RestartDiscordCommand}"
                                Padding="8,4" Margin="0,6,0,0" HorizontalAlignment="Left" />
                 </StackPanel>
             </Border>
@@ -107,11 +108,11 @@
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
-                <ui:Button Grid.Column="0" Content="Добавить" Icon="{ui:SymbolIcon Add24}" Padding="0,5"
+                <ui:Button Grid.Column="0" Content="Добавить" Icon="{ui:SymbolIcon Add24}" MinHeight="0" Padding="0,5"
                            Command="{Binding AddProfileCommand}" Margin="0,0,4,0" />
-                <ui:Button Grid.Column="1" Content="Проверить" Padding="0,5" Command="{Binding RefreshNowCommand}"
-                           Margin="4,0,4,0" />
-                <ui:Button Grid.Column="2" Content="Выход" Padding="0,5" Command="{Binding ExitCommand}"
+                <ui:Button Grid.Column="1" Content="Проверить" MinHeight="0" Padding="0,5"
+                           Command="{Binding RefreshNowCommand}" Margin="4,0,4,0" />
+                <ui:Button Grid.Column="2" Content="Выход" MinHeight="0" Padding="0,5" Command="{Binding ExitCommand}"
                            Margin="4,0,0,0" />
             </Grid>
         </StackPanel>

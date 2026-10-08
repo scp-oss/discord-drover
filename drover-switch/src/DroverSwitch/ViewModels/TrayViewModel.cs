@@ -125,6 +125,18 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
         ? "Discord запущен — новый прокси применится после перезапуска."
         : "Изменения применяются при следующем запуске Discord.";
 
+    /// <summary>Always-visible "which one is actually active" line - independent of whether the
+    /// row highlighting itself is noticeable, so it's never ambiguous which proxy is in drover.ini.</summary>
+    public string ActiveProfileDisplay => _settings.ActiveProfileName is { Length: > 0 } name
+        ? $"Активен: {name}"
+        : "Активный профиль не выбран";
+
+    private void SetActiveProfileName(string? name)
+    {
+        _settings.ActiveProfileName = name;
+        OnPropertyChanged(nameof(ActiveProfileDisplay));
+    }
+
     /// <summary>Called by the dialog. <paramref name="originalName"/> is null when adding a brand-new profile.</summary>
     public void AddOrUpdateProfile(ProxyProfile profile, string? originalName)
     {
@@ -156,7 +168,7 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
             }
 
             if (_settings.ActiveProfileName?.Equals(originalName, StringComparison.OrdinalIgnoreCase) == true)
-                _settings.ActiveProfileName = profile.Name;
+                SetActiveProfileName(profile.Name);
         }
 
         RebuildProfilesCollection();
@@ -168,7 +180,7 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
     {
         _settings.Profiles.RemoveAll(p => p.Name.Equals(item.Name, StringComparison.OrdinalIgnoreCase));
         if (_settings.ActiveProfileName?.Equals(item.Name, StringComparison.OrdinalIgnoreCase) == true)
-            _settings.ActiveProfileName = null;
+            SetActiveProfileName(null);
 
         RebuildProfilesCollection();
         SaveAndMirror();
@@ -233,7 +245,7 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
 
         DroverIniService.WriteProxyToAllDirs(installedDirs, item.ProxyUrl);
 
-        _settings.ActiveProfileName = item.Name;
+        SetActiveProfileName(item.Name);
         SaveAndMirror(installedDirs);
 
         foreach (var p in Profiles)
@@ -332,7 +344,7 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
             return; // this is (very likely) a file we wrote ourselves, not a manual edit.
 
         _settings.Profiles = pool.Profiles;
-        _settings.ActiveProfileName = pool.ActiveName;
+        SetActiveProfileName(pool.ActiveName);
         RebuildProfilesCollection();
         SettingsStore.Save(_settings);
     }
@@ -348,7 +360,7 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
                 continue;
 
             _settings.Profiles = pool.Profiles;
-            _settings.ActiveProfileName = pool.ActiveName;
+            SetActiveProfileName(pool.ActiveName);
             return;
         }
 
@@ -364,7 +376,7 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
 
             var imported = new ProxyProfile { Name = "Текущий", ProxyUrl = existingProxy };
             _settings.Profiles = new List<ProxyProfile> { imported };
-            _settings.ActiveProfileName = imported.Name;
+            SetActiveProfileName(imported.Name);
             return;
         }
     }
