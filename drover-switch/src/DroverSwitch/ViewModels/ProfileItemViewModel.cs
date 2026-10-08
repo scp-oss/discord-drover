@@ -54,7 +54,7 @@ public class ProfileItemViewModel : INotifyPropertyChanged
     public string LatencyText => Status switch
     {
         ProfileStatus.Online => $"{LatencyMs ?? 0} мс",
-        ProfileStatus.Offline => "недоступен",
+        ProfileStatus.Offline => "N/A",
         ProfileStatus.Checking => "проверка…",
         _ => "—",
     };

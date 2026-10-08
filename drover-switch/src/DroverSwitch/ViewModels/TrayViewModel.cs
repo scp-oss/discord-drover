@@ -25,7 +25,6 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
     private int _consecutiveActiveFailures;
     private DateTime _lastAllOfflineNotification = DateTime.MinValue;
     private DateTime _lastMirrorWriteUtc = DateTime.MinValue;
-    private bool _isChecking;
 
     public ObservableCollection<ProfileItemViewModel> Profiles { get; } = new();
 
@@ -91,6 +90,19 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
             _settings.AutoModeEnabled = value;
             _consecutiveActiveFailures = 0;
             SaveAndMirror();
+            OnPropertyChanged();
+        }
+    }
+
+    private bool _isChecking;
+    public bool IsChecking
+    {
+        get => _isChecking;
+        private set
+        {
+            if (_isChecking == value)
+                return;
+            _isChecking = value;
             OnPropertyChanged();
         }
     }
@@ -233,9 +245,9 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
 
     private async Task RunCheckCycleAsync()
     {
-        if (_isChecking)
+        if (IsChecking)
             return;
-        _isChecking = true;
+        IsChecking = true;
 
         try
         {
@@ -243,9 +255,9 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
 
             IsDiscordRunning = DiscordLocator.IsAnyDiscordRunning();
 
+            // Rows keep showing their last known ping while a new cycle runs instead of flashing
+            // to "checking" - the header spinner (bound to IsChecking) is the one "refreshing" cue.
             var snapshot = Profiles.ToList();
-            foreach (var p in snapshot)
-                p.Status = ProfileStatus.Checking;
 
             var checks = await Task.WhenAll(
                 snapshot.Select(p => ProxyHealthChecker.CheckAsync(p.ProxyUrl)));
@@ -297,7 +309,7 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
         }
         finally
         {
-            _isChecking = false;
+            IsChecking = false;
         }
     }
 
