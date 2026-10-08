@@ -1,0 +1,35 @@
+name: DroverSwitch build
+
+on:
+  push:
+    paths:
+      - "drover-switch/**"
+      - ".github/workflows/drover-switch-build.yml"
+  pull_request:
+    paths:
+      - "drover-switch/**"
+  workflow_dispatch: {}
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Restore
+        run: dotnet restore drover-switch/DroverSwitch.sln
+
+      - name: Build
+        run: dotnet build drover-switch/DroverSwitch.sln -c Release --no-restore
+
+      - name: Publish
+        run: dotnet publish drover-switch/src/DroverSwitch/DroverSwitch.csproj -c Release -r win-x64 --self-contained false -o publish
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: DroverSwitch
+          path: publish/

@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <RootNamespace>DroverSwitch</RootNamespace>
+    <AssemblyName>DroverSwitch</AssemblyName>
+    <!-- Mini helper app, lives in the tray; it never needs admin rights. -->
+    <StartupObject>DroverSwitch.App</StartupObject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Fluent/Win11-styled controls, Mica backdrop, light/dark theme synced with the OS. -->
+    <PackageReference Include="WPF-UI" Version="3.0.5" />
+    <!-- Native WPF tray icon with a custom popup instead of a WinForms NotifyIcon. -->
+    <PackageReference Include="H.NotifyIcon.Wpf" Version="2.4.1" />
+  </ItemGroup>
+
+</Project>
