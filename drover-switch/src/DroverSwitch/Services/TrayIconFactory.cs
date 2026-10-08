@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using System.IO;
 using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
@@ -40,23 +39,15 @@ public static class TrayIconFactory
         var renderBitmap = new RenderTargetBitmap(size, size, 96, 96, PixelFormats.Pbgra32);
         renderBitmap.Render(visual);
 
-        // H.NotifyIcon's icon conversion only knows how to re-encode "real" BitmapSource types
-        // (it throws NotImplementedException on a bare RenderTargetBitmap) - round-trip through
-        // PNG into a BitmapImage so it has an actual encodable stream behind it.
-        var encoder = new PngBitmapEncoder();
-        encoder.Frames.Add(BitmapFrame.Create(renderBitmap));
-        using var stream = new MemoryStream();
-        encoder.Save(stream);
-        stream.Position = 0;
+        // H.NotifyIcon's ImageSource -> icon conversion switches on the concrete type: a plain
+        // RenderTargetBitmap isn't handled at all (NotImplementedException), and BitmapImage is
+        // always read back through its UriSource (crashes with ArgumentNullException when built
+        // from a stream instead of a file/pack Uri). BitmapFrame is the one case it encodes
+        // directly (PNG -> ICO) with no Uri involved, so wrap the render in one of those instead.
+        var frame = BitmapFrame.Create(renderBitmap);
+        frame.Freeze();
 
-        var bitmapImage = new BitmapImage();
-        bitmapImage.BeginInit();
-        bitmapImage.CacheOption = BitmapCacheOption.OnLoad;
-        bitmapImage.StreamSource = stream;
-        bitmapImage.EndInit();
-        bitmapImage.Freeze();
-
-        Cache[status] = bitmapImage;
-        return bitmapImage;
+        Cache[status] = frame;
+        return frame;
     }
 }
