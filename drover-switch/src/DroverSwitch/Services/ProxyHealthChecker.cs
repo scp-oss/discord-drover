@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Threading.Tasks;
 using System.IO;
 using System.Net.Security;
@@ -24,27 +25,29 @@ public static class ProxyHealthChecker
     private const int ProbePort = 443;
     private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(5);
 
-    public static async Task<bool> IsReachableAsync(string proxyUrl, CancellationToken ct = default)
+    /// <summary>Reachable + how long the whole probe (tunnel + TLS + HTTP round trip) took, in ms.</summary>
+    public static async Task<(bool Reachable, long? LatencyMs)> CheckAsync(string proxyUrl, CancellationToken ct = default)
     {
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         cts.CancelAfter(Timeout);
 
+        var stopwatch = Stopwatch.StartNew();
         try
         {
             var proxy = ParsedProxy.Parse(proxyUrl);
 
-            if (!proxy.IsSpecified)
-                return await CheckDirectAsync(cts.Token);
+            var ok = !proxy.IsSpecified
+                ? await CheckDirectAsync(cts.Token)
+                : proxy.IsSocks5
+                    ? await CheckSocks5Async(proxy, cts.Token)
+                    // HTTP (and the unknown-protocol fallback, same as drover treats it) goes through CONNECT.
+                    : await CheckHttpConnectAsync(proxy, cts.Token);
 
-            if (proxy.IsSocks5)
-                return await CheckSocks5Async(proxy, cts.Token);
-
-            // HTTP (and the unknown-protocol fallback, same as drover treats it) goes through CONNECT.
-            return await CheckHttpConnectAsync(proxy, cts.Token);
+            return ok ? (true, stopwatch.ElapsedMilliseconds) : (false, null);
         }
         catch
         {
-            return false;
+            return (false, null);
         }
     }
 

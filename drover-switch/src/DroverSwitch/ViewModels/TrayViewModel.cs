@@ -247,11 +247,15 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
             foreach (var p in snapshot)
                 p.Status = ProfileStatus.Checking;
 
-            var results = await Task.WhenAll(
-                snapshot.Select(p => ProxyHealthChecker.IsReachableAsync(p.ProxyUrl)));
+            var checks = await Task.WhenAll(
+                snapshot.Select(p => ProxyHealthChecker.CheckAsync(p.ProxyUrl)));
+            var results = checks.Select(c => c.Reachable).ToArray();
 
             for (var i = 0; i < snapshot.Count; i++)
+            {
+                snapshot[i].LatencyMs = checks[i].LatencyMs;
                 snapshot[i].Status = results[i] ? ProfileStatus.Online : ProfileStatus.Offline;
+            }
 
             var active = snapshot.FirstOrDefault(p =>
                 p.Name.Equals(_settings.ActiveProfileName, StringComparison.OrdinalIgnoreCase));

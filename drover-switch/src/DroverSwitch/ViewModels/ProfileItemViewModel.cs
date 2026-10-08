@@ -31,8 +31,33 @@ public class ProfileItemViewModel : INotifyPropertyChanged
             _status = value;
             OnPropertyChanged();
             OnPropertyChanged(nameof(StatusBrush));
+            OnPropertyChanged(nameof(LatencyText));
         }
     }
+
+    private long? _latencyMs;
+    public long? LatencyMs
+    {
+        get => _latencyMs;
+        set
+        {
+            if (_latencyMs == value)
+                return;
+            _latencyMs = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(LatencyText));
+        }
+    }
+
+    /// <summary>What the popup shows instead of a plain status dot - the actual round-trip to
+    /// discord.com when reachable, so you see how good the proxy is, not just that it's up.</summary>
+    public string LatencyText => Status switch
+    {
+        ProfileStatus.Online => $"{LatencyMs ?? 0} мс",
+        ProfileStatus.Offline => "недоступен",
+        ProfileStatus.Checking => "проверка…",
+        _ => "—",
+    };
 
     public Brush StatusBrush => Status switch
     {
