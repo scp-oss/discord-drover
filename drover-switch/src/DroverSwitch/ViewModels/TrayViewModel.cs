@@ -46,6 +46,7 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
         _settings = SettingsStore.Load();
         ImportFromCompanionFileIfPresent();
         RebuildProfilesCollection();
+        SaveAndMirror();
 
         ActivateProfileCommand = new RelayCommand(p =>
         {
@@ -322,7 +323,9 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
 
     private void ImportFromCompanionFileIfPresent()
     {
-        foreach (var dir in DiscordLocator.FindDroverInstalledDirs(DiscordLocator.FindDiscordDirs()))
+        var installedDirs = DiscordLocator.FindDroverInstalledDirs(DiscordLocator.FindDiscordDirs());
+
+        foreach (var dir in installedDirs)
         {
             var pool = ProfilePoolFile.TryRead(dir);
             if (pool is null || pool.Profiles.Count == 0)
@@ -330,7 +333,23 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
 
             _settings.Profiles = pool.Profiles;
             _settings.ActiveProfileName = pool.ActiveName;
-            break;
+            return;
+        }
+
+        // First run: no drover-switch.ini yet anywhere, so we're still sitting on the
+        // CreateDefault() seed ("Прямое соединение"). If drover.ini already has a proxy
+        // configured - set up by hand before the switcher existed - import that as the active
+        // profile instead of silently hiding what's actually in effect.
+        foreach (var dir in installedDirs)
+        {
+            var existingProxy = DroverIniService.ReadProxy(dir);
+            if (string.IsNullOrWhiteSpace(existingProxy))
+                continue;
+
+            var imported = new ProxyProfile { Name = "Текущий", ProxyUrl = existingProxy };
+            _settings.Profiles = new List<ProxyProfile> { imported };
+            _settings.ActiveProfileName = imported.Name;
+            return;
         }
     }
 
