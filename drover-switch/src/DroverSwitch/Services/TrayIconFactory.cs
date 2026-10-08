@@ -1,8 +1,8 @@
 using System.Collections.Generic;
 using System.Windows;
 using System.Windows.Media;
-using System.Windows.Media.Imaging;
 using DroverSwitch.Models;
+using H.NotifyIcon;
 
 namespace DroverSwitch.Services;
 
@@ -27,27 +27,26 @@ public static class TrayIconFactory
             _ => Color.FromRgb(0x8A, 0x8A, 0x8A),
         };
 
-        const int size = 32;
-        var visual = new DrawingVisual();
-        using (var dc = visual.RenderOpen())
+        const double size = 32;
+
+        // H.NotifyIcon's generic ImageSource -> Win32 icon conversion (ToIconAsync) only
+        // special-cases GeneratedIconSource; every other ImageSource falls through to code that
+        // needs a real backing file/pack Uri, which a bitmap rendered in memory never has
+        // (confirmed from crash.log on two different attempts: NotImplementedException on a bare
+        // RenderTargetBitmap, then ArgumentNullException/UriFormatException trying to treat a
+        // BitmapImage/BitmapFrame as if it had one). GeneratedIconSource is the library's own
+        // supported way to draw a dynamic icon, so use that instead of hand-rolled bitmaps.
+        var icon = new GeneratedIconSource
         {
-            var brush = new SolidColorBrush(color);
-            var pen = new Pen(new SolidColorBrush(Color.FromArgb(0x55, 0, 0, 0)), 1.5);
-            dc.DrawEllipse(brush, pen, new Point(size / 2.0, size / 2.0), size / 2.0 - 2, size / 2.0 - 2);
-        }
+            Size = (int)size,
+            Text = "",
+            Background = new SolidColorBrush(color),
+            BorderBrush = new SolidColorBrush(Color.FromArgb(0x55, 0, 0, 0)),
+            BorderThickness = 1.5f,
+            CornerRadius = new CornerRadius(size / 2),
+        };
 
-        var renderBitmap = new RenderTargetBitmap(size, size, 96, 96, PixelFormats.Pbgra32);
-        renderBitmap.Render(visual);
-
-        // H.NotifyIcon's ImageSource -> icon conversion switches on the concrete type: a plain
-        // RenderTargetBitmap isn't handled at all (NotImplementedException), and BitmapImage is
-        // always read back through its UriSource (crashes with ArgumentNullException when built
-        // from a stream instead of a file/pack Uri). BitmapFrame is the one case it encodes
-        // directly (PNG -> ICO) with no Uri involved, so wrap the render in one of those instead.
-        var frame = BitmapFrame.Create(renderBitmap);
-        frame.Freeze();
-
-        Cache[status] = frame;
-        return frame;
+        Cache[status] = icon;
+        return icon;
     }
 }
