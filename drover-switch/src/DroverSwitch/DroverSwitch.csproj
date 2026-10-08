@@ -26,6 +26,7 @@
          run. Condition means a local build without that fetch step still compiles fine - auto-
          install just silently does nothing until the resource is actually present. -->
     <EmbeddedResource Include="Resources\version.dll" Condition="Exists('Resources\version.dll')" />
+    <EmbeddedResource Include="Resources\drover-packet.bin" Condition="Exists('Resources\drover-packet.bin')" />
   </ItemGroup>
 
 </Project>

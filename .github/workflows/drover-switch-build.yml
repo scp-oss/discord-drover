@@ -20,21 +20,29 @@ jobs:
         with:
           dotnet-version: "8.0.x"
 
-      - name: Fetch upstream drover's version.dll
+      - name: Fetch upstream drover's version.dll and default drover-packet.bin
         shell: pwsh
-        # DroverSwitch bundles version.dll so it can auto-install drover into Discord's folder on
-        # first run - it never modifies drover's own source, just ships the same binary drover.exe
-        # would have installed, pulled straight from the upstream release.
+        # DroverSwitch bundles these so it can auto-install drover into Discord's folder on first
+        # run - it never modifies drover's own source, just ships the same binaries drover.exe's
+        # own installer would have placed, pulled straight from the upstream release.
         run: |
           $release = Invoke-RestMethod -Uri "https://api.github.com/repos/hdrover/discord-drover/releases/latest"
           $asset = $release.assets | Where-Object { $_.name -like "*.zip" } | Select-Object -First 1
           if (-not $asset) { throw "No .zip asset found on the latest hdrover/discord-drover release" }
           Invoke-WebRequest -Uri $asset.browser_download_url -OutFile drover-release.zip
           Expand-Archive -Path drover-release.zip -DestinationPath drover-release
+          New-Item -ItemType Directory -Force -Path drover-switch/src/DroverSwitch/Resources | Out-Null
+
           $dll = Get-ChildItem -Path drover-release -Filter version.dll -Recurse | Select-Object -First 1
           if (-not $dll) { throw "version.dll not found inside $($asset.name)" }
-          New-Item -ItemType Directory -Force -Path drover-switch/src/DroverSwitch/Resources | Out-Null
           Copy-Item -Path $dll.FullName -Destination drover-switch/src/DroverSwitch/Resources/version.dll
+
+          $packet = Get-ChildItem -Path drover-release -Filter drover-packet.bin -Recurse | Select-Object -First 1
+          if ($packet) {
+            Copy-Item -Path $packet.FullName -Destination drover-switch/src/DroverSwitch/Resources/drover-packet.bin
+          } else {
+            Write-Warning "drover-packet.bin not found inside $($asset.name) - skipping, DroverInstaller will just not seed one"
+          }
 
       - name: Restore
         run: dotnet restore drover-switch/DroverSwitch.sln

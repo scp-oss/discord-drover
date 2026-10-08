@@ -17,6 +17,7 @@ public static class DiscordLocator
 {
     public const string DllFileName = "version.dll";
     public const string OptionsFileName = "drover.ini";
+    public const string PacketFileName = "drover-packet.bin";
 
     private static readonly string[] AppNames = { "Discord", "DiscordCanary", "DiscordPTB" };
 
