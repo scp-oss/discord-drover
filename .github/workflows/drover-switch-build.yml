@@ -27,7 +27,7 @@ jobs:
         run: dotnet build drover-switch/DroverSwitch.sln -c Release --no-restore
 
       - name: Publish
-        run: dotnet publish drover-switch/src/DroverSwitch/DroverSwitch.csproj -c Release -r win-x64 --self-contained false -o publish
+        run: dotnet publish drover-switch/src/DroverSwitch/DroverSwitch.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -p:DebugType=none -o publish
 
       - uses: actions/upload-artifact@v4
         with:
