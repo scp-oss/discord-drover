@@ -6,41 +6,86 @@
     xmlns:vm="clr-namespace:DroverSwitch.ViewModels"
     xmlns:views="clr-namespace:DroverSwitch.Views"
     Title="Discord Drover"
-    MinWidth="220"
+    MinWidth="340"
     SizeToContent="WidthAndHeight"
     WindowStyle="None"
     ResizeMode="NoResize"
     ShowInTaskbar="False"
     Topmost="True"
     WindowStartupLocation="Manual"
+    Background="#0D1320"
     Deactivated="TrayPopup_Deactivated"
     x:Name="RootWindow">
 
     <ui:FluentWindow.Resources>
         <views:BoolToVisibilityConverter x:Key="BoolToVis" />
         <views:ActiveToBackgroundConverter x:Key="ActiveToBackground" />
+        <views:ActiveToBorderBrushConverter x:Key="ActiveToBorderBrush" />
+        <views:ActiveToGlowEffectConverter x:Key="ActiveToGlow" />
+        <views:ActiveToAccentOrTransparentConverter x:Key="ActiveToAccent" />
+        <views:BoolToDotBrushConverter x:Key="BoolToDotBrush" />
+
+        <!-- Design tokens: one place for every color/radius this page uses. -->
+        <SolidColorBrush x:Key="WindowBg" Color="#0D1320" />
+        <SolidColorBrush x:Key="WindowBorder" Color="#232B40" />
+        <SolidColorBrush x:Key="SurfaceBrush" Color="#161F33" />
+        <SolidColorBrush x:Key="SurfaceBorderBrush" Color="#262F47" />
+        <SolidColorBrush x:Key="TextPrimaryBrush" Color="#F3F5F9" />
+        <SolidColorBrush x:Key="TextSecondaryBrush" Color="#8E97AC" />
+        <SolidColorBrush x:Key="AccentBrush" Color="#3B82F6" />
+        <LinearGradientBrush x:Key="AccentGradientBrush" StartPoint="0,0" EndPoint="1,1">
+            <GradientStop Color="#5B8CFF" Offset="0" />
+            <GradientStop Color="#2954C8" Offset="1" />
+        </LinearGradientBrush>
     </ui:FluentWindow.Resources>
 
-    <Border Padding="12" CornerRadius="8">
+    <Border Background="{StaticResource WindowBg}" BorderBrush="{StaticResource WindowBorder}"
+            BorderThickness="1" CornerRadius="14" Padding="18">
+        <Border.Effect>
+            <DropShadowEffect Color="Black" BlurRadius="28" ShadowDepth="8" Opacity="0.45" />
+        </Border.Effect>
         <StackPanel>
-            <Grid Margin="0,0,0,2">
+
+            <!-- HEADER -->
+            <Grid Margin="0,0,0,14">
                 <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
-                <TextBlock Grid.Column="0" Text="Discord Drover" FontSize="14" FontWeight="SemiBold" />
-                <ui:ProgressRing Grid.Column="1" Width="14" Height="14"
+
+                <Border Grid.Column="0" Width="40" Height="40" CornerRadius="10"
+                        Background="{StaticResource AccentGradientBrush}" VerticalAlignment="Top">
+                    <Ellipse Width="14" Height="14" Fill="White" Opacity="0.9"
+                             HorizontalAlignment="Center" VerticalAlignment="Center" />
+                </Border>
+
+                <StackPanel Grid.Column="1" Margin="12,0,0,0">
+                    <TextBlock Text="Discord Drover" FontSize="19" FontWeight="SemiBold"
+                               Foreground="{StaticResource TextPrimaryBrush}" />
+                    <TextBlock Text="{Binding StatusHint}" FontSize="12" TextWrapping="Wrap"
+                               Foreground="{StaticResource TextSecondaryBrush}" Margin="0,2,0,0" />
+                    <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                        <Ellipse Width="8" Height="8" VerticalAlignment="Center"
+                                 Fill="{Binding HasActiveProfile, Converter={StaticResource BoolToDotBrush}}" />
+                        <TextBlock Text="{Binding ActiveProfileDisplay}" FontSize="12" FontWeight="Medium"
+                                   Foreground="{StaticResource TextPrimaryBrush}" Margin="7,0,0,0" />
+                    </StackPanel>
+                </StackPanel>
+
+                <ui:ProgressRing Grid.Column="2" Width="16" Height="16" VerticalAlignment="Top"
                                   Visibility="{Binding IsChecking, Converter={StaticResource BoolToVis}}" />
             </Grid>
-            <TextBlock Text="{Binding StatusHint}" FontSize="11" Opacity="0.65" TextWrapping="Wrap" />
-            <TextBlock Text="{Binding ActiveProfileDisplay}" FontSize="11" FontWeight="SemiBold" Opacity="0.85"
-                       Margin="0,2,0,8" />
 
-            <ItemsControl ItemsSource="{Binding Profiles}" Margin="0,0,0,6">
+            <!-- PROXY LIST -->
+            <ItemsControl ItemsSource="{Binding Profiles}" Margin="0,0,0,8">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate DataType="{x:Type vm:ProfileItemViewModel}">
-                        <ui:Button HorizontalContentAlignment="Stretch" MinHeight="0" Margin="0,1" Padding="6,5"
+                        <ui:Button HorizontalContentAlignment="Stretch" MinHeight="0" Margin="0,5" Padding="16,14"
+                                   CornerRadius="12" BorderThickness="1.5"
                                    Background="{Binding IsActive, Converter={StaticResource ActiveToBackground}}"
+                                   BorderBrush="{Binding IsActive, Converter={StaticResource ActiveToBorderBrush}}"
+                                   Effect="{Binding IsActive, Converter={StaticResource ActiveToGlow}}"
                                    Command="{Binding DataContext.ActivateProfileCommand, RelativeSource={RelativeSource AncestorType={x:Type ui:FluentWindow}}}"
                                    CommandParameter="{Binding}">
                             <ui:Button.ContextMenu>
@@ -59,61 +104,93 @@
                             <Grid>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
-                                <TextBlock Grid.Column="0" Text="{Binding LatencyText}" FontSize="11"
-                                           FontWeight="SemiBold" Foreground="{Binding StatusBrush}"
-                                           MinWidth="48" TextAlignment="Right" Margin="0,0,8,0"
-                                           VerticalAlignment="Center" />
-                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                    <TextBlock Text="{Binding Name}" FontWeight="Medium" FontSize="13" />
-                                    <TextBlock Text="{Binding MaskedUrl}" FontSize="11" Opacity="0.6" />
+
+                                <!-- latency: tiny ascending signal bars + the ms value, both colored by status -->
+                                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center"
+                                            Margin="0,0,14,0">
+                                    <StackPanel Orientation="Horizontal" Height="12" VerticalAlignment="Center">
+                                        <Border Width="3" Height="5" CornerRadius="1" VerticalAlignment="Bottom"
+                                                Background="{Binding StatusBrush}" Margin="0,0,2,0" />
+                                        <Border Width="3" Height="8" CornerRadius="1" VerticalAlignment="Bottom"
+                                                Background="{Binding StatusBrush}" Margin="0,0,2,0" />
+                                        <Border Width="3" Height="12" CornerRadius="1" VerticalAlignment="Bottom"
+                                                Background="{Binding StatusBrush}" />
+                                    </StackPanel>
+                                    <TextBlock Text="{Binding LatencyText}" FontSize="14" FontWeight="SemiBold"
+                                               Foreground="{Binding StatusBrush}" Margin="8,0,0,0"
+                                               VerticalAlignment="Center" />
                                 </StackPanel>
-                                <ui:SymbolIcon Grid.Column="2" Symbol="Checkmark24" FontSize="14"
-                                               Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}"
-                                               VerticalAlignment="Center" Margin="8,0,0,0"
-                                               Visibility="{Binding IsActive, Converter={StaticResource BoolToVis}}" />
+
+                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                    <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="15"
+                                               Foreground="{StaticResource TextPrimaryBrush}" />
+                                    <TextBlock Text="{Binding MaskedUrl}" FontSize="12"
+                                               Foreground="{StaticResource TextSecondaryBrush}" Margin="0,2,0,0" />
+                                </StackPanel>
+
+                                <Grid Grid.Column="2" Width="24" Height="24" Margin="12,0,0,0">
+                                    <Ellipse Stroke="{Binding IsActive, Converter={StaticResource ActiveToBorderBrush}}"
+                                             StrokeThickness="1.5"
+                                             Fill="{Binding IsActive, Converter={StaticResource ActiveToAccent}}" />
+                                    <ui:SymbolIcon Symbol="Checkmark24" FontSize="13" Foreground="White"
+                                                   HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                   Visibility="{Binding IsActive, Converter={StaticResource BoolToVis}}" />
+                                </Grid>
                             </Grid>
                         </ui:Button>
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>
             </ItemsControl>
 
-            <Separator Margin="0,2,0,8" />
+            <!-- AUTO SWITCH -->
+            <Border Background="{StaticResource SurfaceBrush}" BorderBrush="{StaticResource SurfaceBorderBrush}"
+                    BorderThickness="1" CornerRadius="10" Padding="14,12" Margin="0,2,0,10">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                        <Ellipse Width="6" Height="6" Fill="{StaticResource AccentBrush}" Margin="0,0,8,0" />
+                        <TextBlock Text="Автопереключение при недоступности" VerticalAlignment="Center"
+                                   TextWrapping="Wrap" FontSize="13"
+                                   Foreground="{StaticResource TextPrimaryBrush}" />
+                    </StackPanel>
+                    <ui:ToggleSwitch Grid.Column="1" IsChecked="{Binding AutoModeEnabled}" Margin="10,0,0,0" />
+                </Grid>
+            </Border>
 
-            <Grid Margin="0,0,0,8">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
-                <TextBlock Grid.Column="0" Text="Автопереключение при недоступности" VerticalAlignment="Center"
-                           TextWrapping="Wrap" FontSize="12" Margin="0,0,8,0" />
-                <ui:ToggleSwitch Grid.Column="1" IsChecked="{Binding AutoModeEnabled}" />
-            </Grid>
-
-            <Border Background="{DynamicResource ControlFillColorSecondaryBrush}" Padding="8" CornerRadius="6"
-                    Margin="0,0,0,8"
+            <!-- DISCORD STATUS CARD -->
+            <Border Background="{StaticResource SurfaceBrush}" BorderBrush="{StaticResource SurfaceBorderBrush}"
+                    BorderThickness="1" CornerRadius="10" Padding="14"
+                    Margin="0,0,0,10"
                     Visibility="{Binding IsDiscordRunning, Converter={StaticResource BoolToVis}}">
                 <StackPanel>
-                    <TextBlock Text="Discord сейчас запущен." FontSize="12" TextWrapping="Wrap" />
-                    <ui:Button Content="Перезапустить Discord" MinHeight="0" Command="{Binding RestartDiscordCommand}"
-                               Padding="8,4" Margin="0,6,0,0" HorizontalAlignment="Left" />
+                    <TextBlock Text="Discord сейчас запущен." FontSize="13"
+                               Foreground="{StaticResource TextPrimaryBrush}" TextWrapping="Wrap" />
+                    <ui:Button Content="Перезапустить Discord" Appearance="Primary" MinHeight="0"
+                               Command="{Binding RestartDiscordCommand}"
+                               Padding="16,11" Margin="0,10,0,0" HorizontalAlignment="Stretch"
+                               HorizontalContentAlignment="Center" FontWeight="Medium" />
                 </StackPanel>
             </Border>
 
+            <!-- BOTTOM ACTIONS -->
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
-                <ui:Button Grid.Column="0" Content="Добавить" Icon="{ui:SymbolIcon Add24}" MinHeight="0" Padding="0,5"
-                           Command="{Binding AddProfileCommand}" Margin="0,0,4,0" />
-                <ui:Button Grid.Column="1" Content="Проверить" MinHeight="0" Padding="0,5"
-                           Command="{Binding RefreshNowCommand}" Margin="4,0,4,0" />
-                <ui:Button Grid.Column="2" Content="Выход" MinHeight="0" Padding="0,5" Command="{Binding ExitCommand}"
-                           Margin="4,0,0,0" />
+                <ui:Button Grid.Column="0" Content="Добавить" Icon="{ui:SymbolIcon Add24}" MinHeight="0"
+                           Padding="0,10" Command="{Binding AddProfileCommand}" Margin="0,0,5,0" />
+                <ui:Button Grid.Column="1" Content="Проверить" Icon="{ui:SymbolIcon ArrowSync24}" MinHeight="0"
+                           Padding="0,10" Command="{Binding RefreshNowCommand}" Margin="5,0,5,0" />
+                <ui:Button Grid.Column="2" Content="Выход" Icon="{ui:SymbolIcon SignOut24}" MinHeight="0"
+                           Padding="0,10" Command="{Binding ExitCommand}" Margin="5,0,0,0" />
             </Grid>
         </StackPanel>
     </Border>

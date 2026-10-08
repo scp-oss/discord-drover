@@ -131,10 +131,15 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
         ? $"Активен: {name}"
         : "Активный профиль не выбран";
 
+    /// <summary>Presentation-only flag for the status dot next to <see cref="ActiveProfileDisplay"/> -
+    /// doesn't change any stored state, just lets the UI color the dot without re-parsing the text.</summary>
+    public bool HasActiveProfile => !string.IsNullOrEmpty(_settings.ActiveProfileName);
+
     private void SetActiveProfileName(string? name)
     {
         _settings.ActiveProfileName = name;
         OnPropertyChanged(nameof(ActiveProfileDisplay));
+        OnPropertyChanged(nameof(HasActiveProfile));
     }
 
     /// <summary>Called by the dialog. <paramref name="originalName"/> is null when adding a brand-new profile.</summary>

@@ -5,13 +5,11 @@ using System.Windows.Media;
 
 namespace DroverSwitch.Views;
 
-/// <summary>Row background: a saturated blue-tinted surface for the active profile, a plain dark
-/// surface for the rest - a direct Background binding renders reliably regardless of how
-/// ui:Button's own Appearance states happen to be styled internally.</summary>
-public class ActiveToBackgroundConverter : IValueConverter
+/// <summary>Accent-blue border for the active profile's card, a subtle neutral border otherwise.</summary>
+public class ActiveToBorderBrushConverter : IValueConverter
 {
-    private static readonly SolidColorBrush ActiveBrush = Freeze(Color.FromRgb(0x1B, 0x2C, 0x52));
-    private static readonly SolidColorBrush InactiveBrush = Freeze(Color.FromRgb(0x14, 0x1B, 0x2E));
+    private static readonly SolidColorBrush ActiveBrush = Freeze(Color.FromRgb(0x3B, 0x82, 0xF6));
+    private static readonly SolidColorBrush InactiveBrush = Freeze(Color.FromRgb(0x27, 0x30, 0x45));
 
     private static SolidColorBrush Freeze(Color color)
     {
