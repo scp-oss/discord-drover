@@ -81,7 +81,7 @@
             <ItemsControl ItemsSource="{Binding Profiles}" Margin="0,0,0,8">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate DataType="{x:Type vm:ProfileItemViewModel}">
-                        <ui:Button HorizontalContentAlignment="Stretch" MinHeight="0" Margin="0,5" Padding="16,14"
+                        <ui:Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" MinHeight="0" Margin="0,5" Padding="16,14"
                                    CornerRadius="12" BorderThickness="1.5"
                                    Background="{Binding IsActive, Converter={StaticResource ActiveToBackground}}"
                                    BorderBrush="{Binding IsActive, Converter={StaticResource ActiveToBorderBrush}}"
@@ -186,11 +186,11 @@
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
-                <ui:Button Grid.Column="0" Content="Добавить" Icon="{ui:SymbolIcon Add24}" MinHeight="0"
+                <ui:Button Grid.Column="0" HorizontalAlignment="Stretch" Content="Добавить" Icon="{ui:SymbolIcon Add24}" MinHeight="0"
                            Padding="10,10" Command="{Binding AddProfileCommand}" Margin="0,0,5,0" />
-                <ui:Button Grid.Column="1" Content="Проверить" Icon="{ui:SymbolIcon ArrowSync24}" MinHeight="0"
+                <ui:Button Grid.Column="1" HorizontalAlignment="Stretch" Content="Проверить" Icon="{ui:SymbolIcon ArrowSync24}" MinHeight="0"
                            Padding="10,10" Command="{Binding RefreshNowCommand}" Margin="5,0,5,0" />
-                <ui:Button Grid.Column="2" Content="Выход" Icon="{ui:SymbolIcon SignOut24}" MinHeight="0"
+                <ui:Button Grid.Column="2" HorizontalAlignment="Stretch" Content="Выход" Icon="{ui:SymbolIcon SignOut24}" MinHeight="0"
                            Padding="10,10" Command="{Binding ExitCommand}" Margin="5,0,0,0" />
             </Grid>
 

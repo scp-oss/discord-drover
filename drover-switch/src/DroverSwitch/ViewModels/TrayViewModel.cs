@@ -32,6 +32,7 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
     public event Action<ProfileStatus>? StatusChanged;
     public event Action<string>? NotificationRequested;
     public event Action<ProxyProfile?>? EditProfileRequested;
+    public event Action? AddProfilesRequested;
 
     public RelayCommand ActivateProfileCommand { get; }
     public RelayCommand AddProfileCommand { get; }
@@ -55,7 +56,7 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
             if (p is ProfileItemViewModel item)
                 ActivateInternal(item, notifyAuto: false);
         });
-        AddProfileCommand = new RelayCommand(_ => EditProfileRequested?.Invoke(null));
+        AddProfileCommand = new RelayCommand(_ => AddProfilesRequested?.Invoke());
         EditProfileCommand = new RelayCommand(p =>
         {
             if (p is ProfileItemViewModel item)
@@ -147,6 +148,32 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
         _settings.ActiveProfileName = name;
         OnPropertyChanged(nameof(ActiveProfileDisplay));
         OnPropertyChanged(nameof(HasActiveProfile));
+    }
+
+    /// <summary>Called by the bulk-add dialog, one or many at once. A name collision with an
+    /// existing profile (or another entry in the same batch) gets auto-suffixed "(2)", "(3)", ...
+    /// rather than rejecting the whole batch over one clash.</summary>
+    public void AddProfiles(IEnumerable<ProxyProfile> profiles)
+    {
+        var addedAny = false;
+
+        foreach (var profile in profiles)
+        {
+            var name = profile.Name;
+            var suffix = 2;
+            while (_settings.Profiles.Any(p => p.Name.Equals(name, StringComparison.OrdinalIgnoreCase)))
+                name = $"{profile.Name} ({suffix++})";
+
+            _settings.Profiles.Add(new ProxyProfile { Name = name, ProxyUrl = profile.ProxyUrl });
+            addedAny = true;
+        }
+
+        if (!addedAny)
+            return;
+
+        RebuildProfilesCollection();
+        SaveAndMirror();
+        _ = RunCheckCycleAsync();
     }
 
     /// <summary>Called by the dialog. <paramref name="originalName"/> is null when adding a brand-new profile.</summary>

@@ -1,0 +1,32 @@
+<ui:FluentWindow
+    x:Class="DroverSwitch.Views.BulkAddDialog"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+    Title="Добавить конфиги"
+    Width="420"
+    SizeToContent="Height"
+    WindowStartupLocation="CenterOwner"
+    ResizeMode="NoResize"
+    ExtendsContentIntoTitleBar="True">
+    <StackPanel Margin="20,0,20,16">
+        <ui:TitleBar Title="Добавить конфиги" Margin="-20,0,-20,12" />
+
+        <TextBlock Text="По одному прокси на строку" Margin="0,0,0,4" />
+        <ui:TextBox x:Name="ListBox" AcceptsReturn="True" TextWrapping="NoWrap"
+                    VerticalScrollBarVisibility="Auto" Height="140"
+                    PlaceholderText="dr3128 http://203.0.113.10:3128&#10;socks5://proxy.example.com:1080"
+                    Margin="0,0,0,4" />
+
+        <TextBlock TextWrapping="Wrap" FontSize="11" Opacity="0.65" Margin="0,0,0,16"
+                   Text="Строка: [имя] protocol://host:port (имя необязательно, через пробел - если не указано, подставится host:port). protocol - http или socks5, авторизация http://login:password@host:port поддерживается только для http. Можно вставить сразу много строк." />
+
+        <TextBlock x:Name="ErrorText" Foreground="IndianRed" FontSize="12" Margin="0,0,0,8"
+                   TextWrapping="Wrap" Visibility="Collapsed" />
+
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+            <ui:Button Content="Отмена" Click="OnCancelClick" Margin="0,0,8,0" />
+            <ui:Button Content="Добавить" Appearance="Primary" Click="OnSaveClick" />
+        </StackPanel>
+    </StackPanel>
+</ui:FluentWindow>
