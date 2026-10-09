@@ -89,16 +89,14 @@
                                    Command="{Binding DataContext.ActivateProfileCommand, RelativeSource={RelativeSource AncestorType={x:Type ui:FluentWindow}}}"
                                    CommandParameter="{Binding}">
                             <ui:Button.ContextMenu>
-                                <!-- A ContextMenu opens in its own Popup, outside the main visual tree, so
-                                     RelativeSource/AncestorType can't reach the window from here - ElementName
-                                     still works because it resolves through the logical NameScope instead. -->
+                                <!-- A ContextMenu's DataContext does inherit across the Popup
+                                     boundary from its PlacementTarget (this button), so Edit/Remove
+                                     live directly on the row's own ProfileItemViewModel - no
+                                     ElementName/RelativeSource needed (those did not resolve
+                                     reliably from here in practice). -->
                                 <ContextMenu>
-                                    <MenuItem Header="Изменить"
-                                              Command="{Binding DataContext.EditProfileCommand, ElementName=RootWindow}"
-                                              CommandParameter="{Binding}" />
-                                    <MenuItem Header="Удалить"
-                                              Command="{Binding DataContext.RemoveProfileCommand, ElementName=RootWindow}"
-                                              CommandParameter="{Binding}" />
+                                    <MenuItem Header="Изменить" Command="{Binding EditCommand}" />
+                                    <MenuItem Header="Удалить" Command="{Binding RemoveCommand}" />
                                 </ContextMenu>
                             </ui:Button.ContextMenu>
                             <Grid>
@@ -164,16 +162,15 @@
                 </Grid>
             </Border>
 
-            <!-- DISCORD STATUS CARD -->
+            <!-- DISCORD STATUS CARD: always visible, action button swaps Close/Launch by status -->
             <Border Background="{StaticResource SurfaceBrush}" BorderBrush="{StaticResource SurfaceBorderBrush}"
                     BorderThickness="1" CornerRadius="10" Padding="14"
-                    Margin="0,0,0,10"
-                    Visibility="{Binding IsDiscordRunning, Converter={StaticResource BoolToVis}}">
+                    Margin="0,0,0,10">
                 <StackPanel>
-                    <TextBlock Text="Discord сейчас запущен." FontSize="13"
+                    <TextBlock Text="{Binding DiscordStatusText}" FontSize="13"
                                Foreground="{StaticResource TextPrimaryBrush}" TextWrapping="Wrap" />
-                    <ui:Button Content="Перезапустить Discord" Appearance="Primary" MinHeight="0"
-                               Command="{Binding RestartDiscordCommand}"
+                    <ui:Button Content="{Binding DiscordActionText}" Appearance="Primary" MinHeight="0"
+                               Command="{Binding DiscordActionCommand}"
                                Padding="16,11" Margin="0,10,0,0" HorizontalAlignment="Stretch"
                                HorizontalContentAlignment="Center" FontWeight="Medium" />
                 </StackPanel>

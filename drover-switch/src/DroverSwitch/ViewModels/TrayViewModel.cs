@@ -36,10 +36,8 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
 
     public RelayCommand ActivateProfileCommand { get; }
     public RelayCommand AddProfileCommand { get; }
-    public RelayCommand EditProfileCommand { get; }
-    public RelayCommand RemoveProfileCommand { get; }
     public RelayCommand RefreshNowCommand { get; }
-    public RelayCommand RestartDiscordCommand { get; }
+    public RelayCommand DiscordActionCommand { get; }
     public RelayCommand UninstallCommand { get; }
     public RelayCommand ExitCommand { get; }
 
@@ -57,18 +55,8 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
                 ActivateInternal(item, notifyAuto: false);
         });
         AddProfileCommand = new RelayCommand(_ => AddProfilesRequested?.Invoke());
-        EditProfileCommand = new RelayCommand(p =>
-        {
-            if (p is ProfileItemViewModel item)
-                EditProfileRequested?.Invoke(item.Model);
-        });
-        RemoveProfileCommand = new RelayCommand(p =>
-        {
-            if (p is ProfileItemViewModel item)
-                RemoveProfile(item);
-        });
         RefreshNowCommand = new RelayCommand(async _ => await RunCheckCycleAsync());
-        RestartDiscordCommand = new RelayCommand(_ => RestartDiscord());
+        DiscordActionCommand = new RelayCommand(_ => ToggleDiscord());
         UninstallCommand = new RelayCommand(_ => UninstallEverything());
         ExitCommand = new RelayCommand(_ => Application.Current.Shutdown());
 
@@ -126,12 +114,18 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
             _isDiscordRunning = value;
             OnPropertyChanged();
             OnPropertyChanged(nameof(StatusHint));
+            OnPropertyChanged(nameof(DiscordStatusText));
+            OnPropertyChanged(nameof(DiscordActionText));
         }
     }
 
     public string StatusHint => IsDiscordRunning
         ? "Discord запущен — новый прокси применится после перезапуска."
         : "Изменения применяются при следующем запуске Discord.";
+
+    public string DiscordStatusText => IsDiscordRunning ? "Discord сейчас запущен." : "Discord сейчас закрыт.";
+
+    public string DiscordActionText => IsDiscordRunning ? "Закрыть Discord" : "Запустить Discord";
 
     /// <summary>Always-visible "which one is actually active" line - independent of whether the
     /// row highlighting itself is noticeable, so it's never ambiguous which proxy is in drover.ini.</summary>
@@ -225,23 +219,29 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
         SaveAndMirror();
     }
 
-    private void RestartDiscord()
+    /// <summary>The Discord status card has one button whose action depends on current state -
+    /// close it if it's running, launch it if it isn't - instead of a single "restart" action.</summary>
+    private void ToggleDiscord()
+    {
+        if (DiscordLocator.IsAnyDiscordRunning())
+            CloseDiscord();
+        else
+            StartDiscord();
+    }
+
+    private void CloseDiscord()
     {
         var running = DiscordLocator.GetRunningDiscordProcesses().ToList();
         if (running.Count == 0)
             return;
 
         var confirm = MessageBox.Show(
-            "Discord будет закрыт и перезапущен, чтобы применить новый прокси. Продолжить?",
+            "Закрыть Discord?",
             "Discord Drover",
             MessageBoxButton.YesNo,
             MessageBoxImage.Question);
         if (confirm != MessageBoxResult.Yes)
             return;
-
-        string? exePath;
-        try { exePath = running[0].MainModule?.FileName; }
-        catch { exePath = null; }
 
         foreach (var proc in running)
         {
@@ -256,14 +256,27 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
                 // Best-effort: a process that's already gone or inaccessible just gets skipped.
             }
         }
+    }
 
-        if (!string.IsNullOrEmpty(exePath) && File.Exists(exePath))
+    private void StartDiscord()
+    {
+        var exePath = DiscordLocator.FindDiscordDirs()
+            .Select(DiscordLocator.GetExecutableIn)
+            .FirstOrDefault(p => p is not null);
+
+        if (exePath is null)
         {
-            Task.Delay(1000).ContinueWith(_ =>
-            {
-                try { System.Diagnostics.Process.Start(exePath); }
-                catch { /* user can relaunch Discord themselves if this fails */ }
-            });
+            MessageBox.Show("Не найден Discord.exe.", "Discord Drover", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        try
+        {
+            System.Diagnostics.Process.Start(exePath);
+        }
+        catch
+        {
+            MessageBox.Show("Не удалось запустить Discord.", "Discord Drover", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 
@@ -514,7 +527,10 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
         Profiles.Clear();
         foreach (var profile in _settings.Profiles)
         {
-            Profiles.Add(new ProfileItemViewModel(profile)
+            Profiles.Add(new ProfileItemViewModel(
+                profile,
+                item => EditProfileRequested?.Invoke(item.Model),
+                item => RemoveProfile(item))
             {
                 IsActive = profile.Name.Equals(_settings.ActiveProfileName, StringComparison.OrdinalIgnoreCase),
             });

@@ -8,25 +8,43 @@
     SizeToContent="Height"
     WindowStartupLocation="CenterOwner"
     ResizeMode="NoResize"
-    ExtendsContentIntoTitleBar="True">
-    <StackPanel Margin="20,0,20,16">
-        <ui:TitleBar Title="Добавить конфиги" Margin="-20,0,-20,12" />
+    WindowStyle="None"
+    Background="#0D1320">
 
-        <TextBlock Text="По одному прокси на строку" Margin="0,0,0,4" />
-        <ui:TextBox x:Name="ListBox" AcceptsReturn="True" TextWrapping="NoWrap"
-                    VerticalScrollBarVisibility="Auto" Height="140"
-                    PlaceholderText="dr3128 http://203.0.113.10:3128&#10;socks5://proxy.example.com:1080"
-                    Margin="0,0,0,4" />
+    <ui:FluentWindow.Resources>
+        <SolidColorBrush x:Key="SurfaceBorderBrush" Color="#262F47" />
+        <SolidColorBrush x:Key="TextPrimaryBrush" Color="#F3F5F9" />
+        <SolidColorBrush x:Key="TextSecondaryBrush" Color="#8E97AC" />
+    </ui:FluentWindow.Resources>
 
-        <TextBlock TextWrapping="Wrap" FontSize="11" Opacity="0.65" Margin="0,0,0,16"
-                   Text="Строка: [имя] protocol://host:port (имя необязательно, через пробел - если не указано, подставится host:port). protocol - http или socks5, авторизация http://login:password@host:port поддерживается только для http. Можно вставить сразу много строк." />
+    <Border Background="#0D1320" BorderBrush="{StaticResource SurfaceBorderBrush}"
+            BorderThickness="1" CornerRadius="14" Padding="20">
+        <Border.Effect>
+            <DropShadowEffect Color="Black" BlurRadius="28" ShadowDepth="8" Opacity="0.45" />
+        </Border.Effect>
+        <StackPanel>
+            <TextBlock Text="Добавить конфиги" FontSize="17" FontWeight="SemiBold"
+                       Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,16" />
 
-        <TextBlock x:Name="ErrorText" Foreground="IndianRed" FontSize="12" Margin="0,0,0,8"
-                   TextWrapping="Wrap" Visibility="Collapsed" />
+            <TextBlock Text="По одному прокси на строку" FontSize="12"
+                       Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,4" />
+            <ui:TextBox x:Name="ListBox" AcceptsReturn="True" TextWrapping="NoWrap"
+                        VerticalScrollBarVisibility="Auto" Height="140"
+                        PlaceholderText="dr3128 http://203.0.113.10:3128&#10;socks5://proxy.example.com:1080"
+                        Margin="0,0,0,4" />
 
-        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-            <ui:Button Content="Отмена" Click="OnCancelClick" Margin="0,0,8,0" />
-            <ui:Button Content="Добавить" Appearance="Primary" Click="OnSaveClick" />
+            <TextBlock TextWrapping="Wrap" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}"
+                       Opacity="0.85" Margin="0,0,0,16"
+                       Text="Строка: [имя] protocol://host:port (имя необязательно, через пробел - если не указано, подставится host:port). protocol - http или socks5, авторизация http://login:password@host:port поддерживается только для http. Можно вставить сразу много строк." />
+
+            <TextBlock x:Name="ErrorText" Foreground="IndianRed" FontSize="12" Margin="0,0,0,8"
+                       TextWrapping="Wrap" Visibility="Collapsed" />
+
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <ui:Button Content="Отмена" MinHeight="0" Padding="14,8" Click="OnCancelClick" Margin="0,0,8,0" />
+                <ui:Button Content="Добавить" Appearance="Primary" MinHeight="0" Padding="14,8"
+                           Click="OnSaveClick" />
+            </StackPanel>
         </StackPanel>
-    </StackPanel>
+    </Border>
 </ui:FluentWindow>

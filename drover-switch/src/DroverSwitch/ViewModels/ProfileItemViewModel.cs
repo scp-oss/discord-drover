@@ -1,3 +1,4 @@
+using System;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Windows.Media;
@@ -10,9 +11,19 @@ public class ProfileItemViewModel : INotifyPropertyChanged
 {
     public ProxyProfile Model { get; }
 
-    public ProfileItemViewModel(ProxyProfile model)
+    /// <summary>Edit/Remove live here instead of being reached via ElementName from the row's
+    /// ContextMenu - a ContextMenu's DataContext does inherit from its PlacementTarget across the
+    /// Popup boundary, but an ElementName lookup for a window-level name did not resolve reliably
+    /// from inside it (confirmed: both menu items were simply inert). Binding straight to a command
+    /// that already lives on this item's own DataContext sidesteps that entirely.</summary>
+    public RelayCommand EditCommand { get; }
+    public RelayCommand RemoveCommand { get; }
+
+    public ProfileItemViewModel(ProxyProfile model, Action<ProfileItemViewModel> onEdit, Action<ProfileItemViewModel> onRemove)
     {
         Model = model;
+        EditCommand = new RelayCommand(_ => onEdit(this));
+        RemoveCommand = new RelayCommand(_ => onRemove(this));
     }
 
     public string Name => Model.Name;
