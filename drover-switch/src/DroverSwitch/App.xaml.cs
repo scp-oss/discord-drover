@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Threading;
 using DroverSwitch.Models;
 using DroverSwitch.Services;
@@ -64,6 +65,18 @@ public partial class App : Application
         };
         _trayIcon.ForceCreate();
         _trayIcon.TrayLeftMouseUp += (_, _) => _popup?.ToggleNearTray();
+
+        // Right-click gives quick access to Exit and the full uninstall without first opening the
+        // popup - left-click still opens the popup for everything else (switching, adding, etc.).
+        _trayIcon.ContextMenu = new ContextMenu
+        {
+            Items =
+            {
+                new MenuItem { Header = "Удалить Discord Drover", Command = _viewModel.UninstallCommand },
+                new Separator(),
+                new MenuItem { Header = "Выход", Command = _viewModel.ExitCommand },
+            },
+        };
 
         _viewModel.StatusChanged += status =>
             Dispatcher.Invoke(() => _trayIcon!.IconSource = TrayIconFactory.GetDot(status));
