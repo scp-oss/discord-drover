@@ -22,10 +22,12 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
 {
     private readonly AppSettings _settings;
     private readonly DispatcherTimer _timer;
+    private readonly DispatcherTimer _updateCheckTimer;
     private int _consecutiveActiveFailures;
     private DateTime _lastAllOfflineNotification = DateTime.MinValue;
     private DateTime _lastMirrorWriteUtc = DateTime.MinValue;
     private bool _droverJustAutoInstalled;
+    private string? _latestReleaseUrl;
 
     public ObservableCollection<ProfileItemViewModel> Profiles { get; } = new();
 
@@ -39,6 +41,7 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
     public RelayCommand RefreshNowCommand { get; }
     public RelayCommand DiscordActionCommand { get; }
     public RelayCommand UninstallCommand { get; }
+    public RelayCommand OpenReleasePageCommand { get; }
     public RelayCommand ExitCommand { get; }
 
     public TrayViewModel()
@@ -58,6 +61,7 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
         RefreshNowCommand = new RelayCommand(async _ => await RunCheckCycleAsync());
         DiscordActionCommand = new RelayCommand(_ => ToggleDiscord());
         UninstallCommand = new RelayCommand(_ => UninstallEverything());
+        OpenReleasePageCommand = new RelayCommand(_ => OpenReleasePage());
         ExitCommand = new RelayCommand(_ => Application.Current.Shutdown());
 
         _timer = new DispatcherTimer
@@ -65,6 +69,11 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
             Interval = TimeSpan.FromSeconds(Math.Max(5, _settings.CheckIntervalSeconds)),
         };
         _timer.Tick += async (_, _) => await RunCheckCycleAsync();
+
+        // Separate, much less frequent timer - checking GitHub every 20s alongside the proxy
+        // health loop would be pointless and could trip API rate limits on a long-running session.
+        _updateCheckTimer = new DispatcherTimer { Interval = TimeSpan.FromHours(6) };
+        _updateCheckTimer.Tick += async (_, _) => await CheckForUpdatesAsync();
     }
 
     public void Start()
@@ -74,6 +83,9 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
 
         _timer.Start();
         _ = RunCheckCycleAsync();
+
+        _updateCheckTimer.Start();
+        _ = CheckForUpdatesAsync();
     }
 
     public bool AutoModeEnabled
@@ -126,6 +138,35 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
     public string DiscordStatusText => IsDiscordRunning ? "Discord сейчас запущен." : "Discord сейчас закрыт.";
 
     public string DiscordActionText => IsDiscordRunning ? "Закрыть Discord" : "Запустить Discord";
+
+    private bool _updateAvailable;
+    public bool UpdateAvailable
+    {
+        get => _updateAvailable;
+        private set
+        {
+            if (_updateAvailable == value)
+                return;
+            _updateAvailable = value;
+            OnPropertyChanged();
+        }
+    }
+
+    private string? _latestVersionTag;
+    public string? LatestVersionTag
+    {
+        get => _latestVersionTag;
+        private set
+        {
+            if (_latestVersionTag == value)
+                return;
+            _latestVersionTag = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(UpdateBannerText));
+        }
+    }
+
+    public string UpdateBannerText => $"Доступна новая версия: {LatestVersionTag}";
 
     /// <summary>Always-visible "which one is actually active" line - independent of whether the
     /// row highlighting itself is noticeable, so it's never ambiguous which proxy is in drover.ini.</summary>
@@ -277,6 +318,40 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
         catch
         {
             MessageBox.Show("Не удалось запустить Discord.", "Discord Drover", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private async Task CheckForUpdatesAsync()
+    {
+        var result = await UpdateChecker.CheckAsync();
+        if (!result.HasUpdate)
+            return;
+
+        _latestReleaseUrl = result.ReleaseUrl;
+        LatestVersionTag = result.Tag;
+
+        var wasAlreadyKnown = UpdateAvailable;
+        UpdateAvailable = true;
+
+        if (!wasAlreadyKnown)
+            NotificationRequested?.Invoke($"Доступна новая версия DroverSwitch: {result.Tag}. Нажмите, чтобы открыть релиз.");
+    }
+
+    private void OpenReleasePage()
+    {
+        if (_latestReleaseUrl is null)
+            return;
+
+        try
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(_latestReleaseUrl)
+            {
+                UseShellExecute = true,
+            });
+        }
+        catch
+        {
+            // Nothing more useful to do if the OS can't hand off a URL to a browser.
         }
     }
 
@@ -552,6 +627,7 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
     public void Dispose()
     {
         _timer.Stop();
+        _updateCheckTimer.Stop();
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
