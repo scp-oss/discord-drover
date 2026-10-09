@@ -11,6 +11,10 @@
     <AssemblyName>DroverSwitch</AssemblyName>
     <!-- Mini helper app, lives in the tray; it never needs admin rights. -->
     <StartupObject>DroverSwitch.App</StartupObject>
+    <!-- Bump this alongside the GitHub release tag (drover-switch-vX.Y.Z) - keep them in sync so
+         the exe's own file properties (right-click - Properties - Details) always match the
+         release it came from. -->
+    <Version>0.2.0</Version>
   </PropertyGroup>
 
   <ItemGroup>
