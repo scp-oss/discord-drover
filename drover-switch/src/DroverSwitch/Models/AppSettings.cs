@@ -9,6 +9,8 @@ public class AppSettings
 
     public bool AutoModeEnabled { get; set; }
 
+    public bool StartWithWindows { get; set; }
+
     public int CheckIntervalSeconds { get; set; } = 20;
 
     public static AppSettings CreateDefault() => new()

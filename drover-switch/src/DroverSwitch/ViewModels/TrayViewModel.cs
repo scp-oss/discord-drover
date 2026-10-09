@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 using System.IO;
@@ -39,7 +40,9 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
     public RelayCommand ActivateProfileCommand { get; }
     public RelayCommand AddProfileCommand { get; }
     public RelayCommand RefreshNowCommand { get; }
-    public RelayCommand DiscordActionCommand { get; }
+    public RelayCommand StartDiscordCommand { get; }
+    public RelayCommand CloseDiscordCommand { get; }
+    public RelayCommand RestartDiscordCommand { get; }
     public RelayCommand UninstallCommand { get; }
     public RelayCommand OpenReleasePageCommand { get; }
     public RelayCommand ExitCommand { get; }
@@ -59,7 +62,9 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
         });
         AddProfileCommand = new RelayCommand(_ => AddProfilesRequested?.Invoke());
         RefreshNowCommand = new RelayCommand(async _ => await RunCheckCycleAsync());
-        DiscordActionCommand = new RelayCommand(_ => ToggleDiscord());
+        StartDiscordCommand = new RelayCommand(_ => StartDiscord());
+        CloseDiscordCommand = new RelayCommand(_ => CloseDiscord());
+        RestartDiscordCommand = new RelayCommand(_ => RestartDiscord());
         UninstallCommand = new RelayCommand(_ => UninstallEverything());
         OpenReleasePageCommand = new RelayCommand(_ => OpenReleasePage());
         ExitCommand = new RelayCommand(_ => Application.Current.Shutdown());
@@ -102,6 +107,21 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
         }
     }
 
+    /// <summary>Off by default - only ever turned on if the user flips it themselves.</summary>
+    public bool StartWithWindows
+    {
+        get => _settings.StartWithWindows;
+        set
+        {
+            if (_settings.StartWithWindows == value)
+                return;
+            _settings.StartWithWindows = value;
+            AutostartService.SetEnabled(value);
+            SaveAndMirror();
+            OnPropertyChanged();
+        }
+    }
+
     private bool _isChecking;
     public bool IsChecking
     {
@@ -125,19 +145,21 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
                 return;
             _isDiscordRunning = value;
             OnPropertyChanged();
+            OnPropertyChanged(nameof(IsDiscordNotRunning));
             OnPropertyChanged(nameof(StatusHint));
             OnPropertyChanged(nameof(DiscordStatusText));
-            OnPropertyChanged(nameof(DiscordActionText));
         }
     }
+
+    /// <summary>Just the negation, for XAML visibility bindings - the popup shows either the single
+    /// "Запустить" button or the "Перезапустить"/"Закрыть" pair, never both.</summary>
+    public bool IsDiscordNotRunning => !IsDiscordRunning;
 
     public string StatusHint => IsDiscordRunning
         ? "Discord запущен — новый прокси применится после перезапуска."
         : "Изменения применяются при следующем запуске Discord.";
 
     public string DiscordStatusText => IsDiscordRunning ? "Discord сейчас запущен." : "Discord сейчас закрыт.";
-
-    public string DiscordActionText => IsDiscordRunning ? "Закрыть Discord" : "Запустить Discord";
 
     private bool _updateAvailable;
     public bool UpdateAvailable
@@ -262,14 +284,6 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
 
     /// <summary>The Discord status card has one button whose action depends on current state -
     /// close it if it's running, launch it if it isn't - instead of a single "restart" action.</summary>
-    private void ToggleDiscord()
-    {
-        if (DiscordLocator.IsAnyDiscordRunning())
-            CloseDiscord();
-        else
-            StartDiscord();
-    }
-
     private void CloseDiscord()
     {
         var running = DiscordLocator.GetRunningDiscordProcesses().ToList();
@@ -284,7 +298,57 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
         if (confirm != MessageBoxResult.Yes)
             return;
 
-        foreach (var proc in running)
+        KillDiscordProcesses(running);
+
+        // The periodic health-check loop would catch this within ~20s anyway, but updating right
+        // away is what actually fixes "the button didn't change" - no reason to make the user wait
+        // out a poll interval to see a state they just caused themselves.
+        IsDiscordRunning = DiscordLocator.IsAnyDiscordRunning();
+    }
+
+    private void StartDiscord()
+    {
+        if (TryStartDiscord())
+            IsDiscordRunning = DiscordLocator.IsAnyDiscordRunning();
+    }
+
+    private void RestartDiscord()
+    {
+        var running = DiscordLocator.GetRunningDiscordProcesses().ToList();
+        if (running.Count == 0)
+            return;
+
+        var confirm = MessageBox.Show(
+            "Discord будет закрыт и перезапущен, чтобы применить новый прокси. Продолжить?",
+            "Discord Drover",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Question);
+        if (confirm != MessageBoxResult.Yes)
+            return;
+
+        string? exePath;
+        try { exePath = running[0].MainModule?.FileName; }
+        catch { exePath = null; }
+
+        KillDiscordProcesses(running);
+        IsDiscordRunning = DiscordLocator.IsAnyDiscordRunning();
+
+        if (!string.IsNullOrEmpty(exePath) && File.Exists(exePath))
+        {
+            Task.Delay(1000).ContinueWith(_ =>
+            {
+                try { System.Diagnostics.Process.Start(exePath); }
+                catch { /* user can relaunch Discord themselves if this fails */ }
+
+                Application.Current?.Dispatcher.Invoke(() =>
+                    IsDiscordRunning = DiscordLocator.IsAnyDiscordRunning());
+            });
+        }
+    }
+
+    private static void KillDiscordProcesses(IEnumerable<Process> processes)
+    {
+        foreach (var proc in processes)
         {
             try
             {
@@ -299,7 +363,7 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
         }
     }
 
-    private void StartDiscord()
+    private bool TryStartDiscord()
     {
         var exePath = DiscordLocator.FindDiscordDirs()
             .Select(DiscordLocator.GetExecutableIn)
@@ -308,16 +372,18 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
         if (exePath is null)
         {
             MessageBox.Show("Не найден Discord.exe.", "Discord Drover", MessageBoxButton.OK, MessageBoxImage.Warning);
-            return;
+            return false;
         }
 
         try
         {
             System.Diagnostics.Process.Start(exePath);
+            return true;
         }
         catch
         {
             MessageBox.Show("Не удалось запустить Discord.", "Discord Drover", MessageBoxButton.OK, MessageBoxImage.Error);
+            return false;
         }
     }
 
@@ -389,6 +455,7 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
             TryDelete(Path.Combine(dir, ProfilePoolFile.FileName));
         }
 
+        AutostartService.SetEnabled(false);
         SettingsStore.Delete();
 
         MessageBox.Show("Discord Drover удалён.", "Discord Drover", MessageBoxButton.OK, MessageBoxImage.Information);
