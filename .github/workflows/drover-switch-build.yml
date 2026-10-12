@@ -10,6 +10,16 @@ on:
       - "drover-switch/**"
   workflow_dispatch: {}
 
+permissions:
+  contents: read
+
+env:
+  # Pinned upstream release. To update drover: change the tag, run the workflow once,
+  # copy the SHA-256 printed in the "Fetch upstream" step into DROVER_ZIP_SHA256, commit.
+  DROVER_REPO: hdrover/discord-drover
+  DROVER_TAG: "v0.9"
+  DROVER_ZIP_SHA256: "9bd4f5e27ccd0e195ea0ffc5822d3057d8aad700b44b97067ab91fdb67c861a1"
+
 jobs:
   build:
     runs-on: windows-latest
@@ -22,14 +32,35 @@ jobs:
 
       - name: Fetch upstream drover's version.dll and default drover-packet.bin
         shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
         # DroverSwitch bundles these so it can auto-install drover into Discord's folder on first
         # run - it never modifies drover's own source, just ships the same binaries drover.exe's
-        # own installer would have placed, pulled straight from the upstream release.
+        # own installer would have placed, pulled from a PINNED upstream release and verified
+        # against a known SHA-256 so a changed or tampered release can't slip into the build.
         run: |
-          $release = Invoke-RestMethod -Uri "https://api.github.com/repos/hdrover/discord-drover/releases/latest"
+          if ($env:DROVER_TAG -eq "REPLACE_WITH_RELEASE_TAG") {
+            throw "Set DROVER_TAG at the top of the workflow to an upstream release tag."
+          }
+
+          $headers = @{ Authorization = "Bearer $env:GH_TOKEN"; "User-Agent" = "droverswitch-ci" }
+          $release = Invoke-RestMethod -Headers $headers -Uri "https://api.github.com/repos/$env:DROVER_REPO/releases/tags/$env:DROVER_TAG"
           $asset = $release.assets | Where-Object { $_.name -like "*.zip" } | Select-Object -First 1
-          if (-not $asset) { throw "No .zip asset found on the latest hdrover/discord-drover release" }
+          if (-not $asset) { throw "No .zip asset found on $env:DROVER_REPO release $env:DROVER_TAG" }
+
           Invoke-WebRequest -Uri $asset.browser_download_url -OutFile drover-release.zip
+
+          $actual = (Get-FileHash -Path drover-release.zip -Algorithm SHA256).Hash.ToLower()
+          Write-Host "Upstream asset: $($asset.name)"
+          Write-Host "SHA-256: $actual"
+
+          if (-not $env:DROVER_ZIP_SHA256) {
+            throw "DROVER_ZIP_SHA256 is empty. If you trust the asset above, set DROVER_ZIP_SHA256 to: $actual"
+          }
+          if ($actual -ne $env:DROVER_ZIP_SHA256.ToLower()) {
+            throw "SHA-256 mismatch for $($asset.name). Expected $env:DROVER_ZIP_SHA256 but got $actual"
+          }
+
           Expand-Archive -Path drover-release.zip -DestinationPath drover-release
           New-Item -ItemType Directory -Force -Path drover-switch/src/DroverSwitch/Resources | Out-Null
 
