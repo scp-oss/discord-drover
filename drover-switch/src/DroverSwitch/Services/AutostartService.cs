@@ -1,6 +1,6 @@
 using System;
 using System.Diagnostics;
-using System.Reflection;
+using System.IO;
 using Microsoft.Win32;
 
 namespace DroverSwitch.Services;
@@ -20,8 +20,12 @@ public static class AutostartService
 
         if (enabled)
         {
+            // Assembly.Location is always "" for a single-file-published app (the DLL lives
+            // embedded in the exe, not on disk as its own file) - MainModule.FileName is the one
+            // that reliably gives the actual running exe's path in that scenario. AppContext.
+            // BaseDirectory + the known exe name is the fallback if MainModule is ever unavailable.
             var exePath = Process.GetCurrentProcess().MainModule?.FileName
-                ?? Assembly.GetExecutingAssembly().Location;
+                ?? Path.Combine(AppContext.BaseDirectory, "DroverSwitch.exe");
             key.SetValue(ValueName, $"\"{exePath}\"");
         }
         else
