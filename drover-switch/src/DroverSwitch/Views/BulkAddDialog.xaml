@@ -6,6 +6,7 @@
     Title="Добавить конфиги"
     Width="420"
     SizeToContent="Height"
+    MinHeight="0"
     WindowStartupLocation="CenterOwner"
     ResizeMode="NoResize"
     WindowStyle="None"
