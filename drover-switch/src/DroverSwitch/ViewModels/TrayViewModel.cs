@@ -532,14 +532,26 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
         }
         else if (!discordClosed)
         {
-            var confirm = MessageBox.Show(
-                "Для применения выбранной конфигурации необходимо перезапустить Discord. Перезапустить сейчас?",
-                "Discord Drover",
-                MessageBoxButton.YesNo,
-                MessageBoxImage.Question);
-            if (confirm == MessageBoxResult.Yes)
-                RestartDiscord(skipConfirm: true);
+            _ = PromptRestartAfterSwitchAsync();
         }
+    }
+
+    /// <summary>The standard System.Windows.MessageBox only offers fixed, system-localized button
+    /// labels (Да/Нет, ОК/Отмена, ...) - this one specifically needed "ОК"/"Закрыть" instead, which
+    /// only the themed Wpf.Ui.Controls.MessageBox lets you set per call.</summary>
+    private async Task PromptRestartAfterSwitchAsync()
+    {
+        var dialog = new Wpf.Ui.Controls.MessageBox
+        {
+            Title = "Discord Drover",
+            Content = "Для применения выбранной конфигурации необходимо перезапустить Discord.",
+            PrimaryButtonText = "ОК",
+            CloseButtonText = "Закрыть",
+        };
+
+        var result = await dialog.ShowDialogAsync();
+        if (result == Wpf.Ui.Controls.MessageBoxResult.Primary)
+            RestartDiscord(skipConfirm: true);
     }
 
     /// <summary>Installs version.dll into every discovered Discord folder that doesn't have it yet -
