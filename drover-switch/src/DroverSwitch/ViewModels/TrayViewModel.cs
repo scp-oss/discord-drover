@@ -84,6 +84,12 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
 
     public void Start()
     {
+        // A tray app has no visible window at all, so a manual launch gives zero confirmation it
+        // actually started - say so once. Skipped for an autostart launch (Windows itself starting
+        // it silently at login is the expected, unremarkable case).
+        if (!AutostartService.IsAutostartLaunch(Environment.GetCommandLineArgs()))
+            NotificationRequested?.Invoke("Discord Drover запущен — ищите его значок в трее.");
+
         if (_droverJustAutoInstalled)
             NotificationRequested?.Invoke("Discord Drover установлен автоматически.");
 

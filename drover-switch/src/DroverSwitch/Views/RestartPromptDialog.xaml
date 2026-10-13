@@ -7,7 +7,7 @@
     Width="340"
     SizeToContent="Height"
     MinHeight="0"
-    WindowStartupLocation="CenterOwner"
+    WindowStartupLocation="CenterScreen"
     ResizeMode="NoResize"
     WindowStyle="None"
     Background="#0D1320">
