@@ -36,6 +36,7 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
     public event Action<string>? NotificationRequested;
     public event Action<ProxyProfile?>? EditProfileRequested;
     public event Action? AddProfilesRequested;
+    public event Action? RestartPromptRequested;
 
     public RelayCommand ActivateProfileCommand { get; }
     public RelayCommand AddProfileCommand { get; }
@@ -532,27 +533,16 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
         }
         else if (!discordClosed)
         {
-            _ = PromptRestartAfterSwitchAsync();
+            // Wpf.Ui.Controls.MessageBox (tried first, for custom "ОК"/"Закрыть" button text)
+            // rendered as an empty box in practice - route through TrayPopup instead, same as
+            // every other dialog in this app, with a small hand-built FluentWindow that's already
+            // proven to actually show its content.
+            RestartPromptRequested?.Invoke();
         }
     }
 
-    /// <summary>The standard System.Windows.MessageBox only offers fixed, system-localized button
-    /// labels (Да/Нет, ОК/Отмена, ...) - this one specifically needed "ОК"/"Закрыть" instead, which
-    /// only the themed Wpf.Ui.Controls.MessageBox lets you set per call.</summary>
-    private async Task PromptRestartAfterSwitchAsync()
-    {
-        var dialog = new Wpf.Ui.Controls.MessageBox
-        {
-            Title = "Discord Drover",
-            Content = "Для применения выбранной конфигурации необходимо перезапустить Discord.",
-            PrimaryButtonText = "ОК",
-            CloseButtonText = "Закрыть",
-        };
-
-        var result = await dialog.ShowDialogAsync();
-        if (result == Wpf.Ui.Controls.MessageBoxResult.Primary)
-            RestartDiscord(skipConfirm: true);
-    }
+    /// <summary>Called back by TrayPopup after the user clicks "ОК" on the restart prompt.</summary>
+    public void ConfirmRestartAfterSwitch() => RestartDiscord(skipConfirm: true);
 
     /// <summary>Installs version.dll into every discovered Discord folder that doesn't have it yet -
     /// called once at startup so the user never has to run drover.exe's own installer by hand.

@@ -1,0 +1,35 @@
+<ui:FluentWindow
+    x:Class="DroverSwitch.Views.RestartPromptDialog"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+    Title="Discord Drover"
+    Width="340"
+    SizeToContent="Height"
+    WindowStartupLocation="CenterOwner"
+    ResizeMode="NoResize"
+    WindowStyle="None"
+    Background="#0D1320">
+
+    <ui:FluentWindow.Resources>
+        <SolidColorBrush x:Key="SurfaceBorderBrush" Color="#262F47" />
+        <SolidColorBrush x:Key="TextPrimaryBrush" Color="#F3F5F9" />
+    </ui:FluentWindow.Resources>
+
+    <Border Background="#0D1320" BorderBrush="{StaticResource SurfaceBorderBrush}"
+            BorderThickness="1" CornerRadius="14" Padding="20">
+        <Border.Effect>
+            <DropShadowEffect Color="Black" BlurRadius="28" ShadowDepth="8" Opacity="0.45" />
+        </Border.Effect>
+        <StackPanel>
+            <TextBlock Text="Для применения выбранной конфигурации необходимо перезапустить Discord."
+                       FontSize="14" TextWrapping="Wrap" Foreground="{StaticResource TextPrimaryBrush}"
+                       Margin="0,0,0,18" />
+
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <ui:Button Content="Закрыть" MinHeight="0" Padding="14,8" Click="OnCloseClick" Margin="0,0,8,0" />
+                <ui:Button Content="ОК" Appearance="Primary" MinHeight="0" Padding="14,8" Click="OnOkClick" />
+            </StackPanel>
+        </StackPanel>
+    </Border>
+</ui:FluentWindow>

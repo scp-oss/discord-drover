@@ -19,6 +19,7 @@ public partial class TrayPopup : Wpf.Ui.Controls.FluentWindow
         ApplicationThemeManager.Apply(this);
         _viewModel.EditProfileRequested += OnEditProfileRequested;
         _viewModel.AddProfilesRequested += OnAddProfilesRequested;
+        _viewModel.RestartPromptRequested += OnRestartPromptRequested;
     }
 
     /// <summary>Shows the popup anchored near the system tray, or hides it if it's already open.</summary>
@@ -56,6 +57,16 @@ public partial class TrayPopup : Wpf.Ui.Controls.FluentWindow
         if (dialog.ShowDialog() == true && dialog.Result.Count > 0)
         {
             _viewModel.AddProfiles(dialog.Result);
+        }
+    }
+
+    private void OnRestartPromptRequested()
+    {
+        var dialog = new RestartPromptDialog { Owner = this };
+        dialog.ShowDialog();
+        if (dialog.Result)
+        {
+            _viewModel.ConfirmRestartAfterSwitch();
         }
     }
 }
