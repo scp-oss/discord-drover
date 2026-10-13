@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -18,6 +19,7 @@ public partial class App : Application
     private TaskbarIcon? _trayIcon;
     private TrayViewModel? _viewModel;
     private TrayPopup? _popup;
+    private Mutex? _singleInstanceMutex;
 
     private static readonly string CrashLogPath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "DroverSwitch", "crash.log");
@@ -25,6 +27,21 @@ public partial class App : Application
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+
+        // No "Global\" prefix on purpose: this should block a second copy for the same Windows
+        // user session (double-click the exe again, or autostart + a manual launch), not stop a
+        // different user on a shared machine from running their own.
+        _singleInstanceMutex = new Mutex(initiallyOwned: true, "DroverSwitch-SingleInstance", out var createdNew);
+        if (!createdNew)
+        {
+            MessageBox.Show(
+                "Discord Drover уже запущен — ищите значок в системном трее.",
+                "Discord Drover",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            Shutdown();
+            return;
+        }
 
         // A tray app has no console, so an unhandled exception otherwise just vanishes the
         // process with no visible sign of what happened - log and show it instead.
@@ -111,6 +128,14 @@ public partial class App : Application
     {
         _trayIcon?.Dispose();
         _viewModel?.Dispose();
+
+        if (_singleInstanceMutex is not null)
+        {
+            try { _singleInstanceMutex.ReleaseMutex(); }
+            catch (ApplicationException) { /* never acquired (e.g. the duplicate-instance exit path) */ }
+            _singleInstanceMutex.Dispose();
+        }
+
         base.OnExit(e);
     }
 }
