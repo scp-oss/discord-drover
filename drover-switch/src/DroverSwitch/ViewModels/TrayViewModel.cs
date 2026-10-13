@@ -312,19 +312,24 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
             IsDiscordRunning = DiscordLocator.IsAnyDiscordRunning();
     }
 
-    private void RestartDiscord()
+    /// <summary><paramref name="skipConfirm"/> is for when the caller already asked (the
+    /// post-switch restart prompt) - avoids asking the user to confirm the same restart twice.</summary>
+    private void RestartDiscord(bool skipConfirm = false)
     {
         var running = DiscordLocator.GetRunningDiscordProcesses().ToList();
         if (running.Count == 0)
             return;
 
-        var confirm = MessageBox.Show(
-            "Discord будет закрыт и перезапущен, чтобы применить новый прокси. Продолжить?",
-            "Discord Drover",
-            MessageBoxButton.YesNo,
-            MessageBoxImage.Question);
-        if (confirm != MessageBoxResult.Yes)
-            return;
+        if (!skipConfirm)
+        {
+            var confirm = MessageBox.Show(
+                "Discord будет закрыт и перезапущен, чтобы применить новый прокси. Продолжить?",
+                "Discord Drover",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question);
+            if (confirm != MessageBoxResult.Yes)
+                return;
+        }
 
         string? exePath;
         try { exePath = running[0].MainModule?.FileName; }
@@ -520,7 +525,21 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
             p.IsActive = p.Name.Equals(item.Name, StringComparison.OrdinalIgnoreCase);
 
         if (notifyAuto)
+        {
+            // A background action popping up a blocking dialog would be jarring - the toast is
+            // enough, and the Discord status card's own Restart button is still right there.
             NotificationRequested?.Invoke($"Автоматически переключено на «{item.Name}».");
+        }
+        else if (!discordClosed)
+        {
+            var confirm = MessageBox.Show(
+                "Для применения выбранной конфигурации необходимо перезапустить Discord. Перезапустить сейчас?",
+                "Discord Drover",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question);
+            if (confirm == MessageBoxResult.Yes)
+                RestartDiscord(skipConfirm: true);
+        }
     }
 
     /// <summary>Installs version.dll into every discovered Discord folder that doesn't have it yet -
