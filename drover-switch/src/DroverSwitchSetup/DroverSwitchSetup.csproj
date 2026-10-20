@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <RootNamespace>DroverSwitchSetup</RootNamespace>
+    <AssemblyName>DroverSwitchSetup</AssemblyName>
+    <StartupObject>DroverSwitchSetup.App</StartupObject>
+    <!-- Keep this in lockstep with DroverSwitch's own <Version> at every release - SetupWindow
+         compares this assembly's own version against the installed copy's to decide whether the
+         embedded payload is an update. Bump both together, same as the release tag. -->
+    <Version>0.2.6</Version>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Only needed for the small Fluent-styled status window - no tray icon in this project. -->
+    <PackageReference Include="WPF-UI" Version="3.0.5" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Copied in by the CI workflow from the DroverSwitch build output of the SAME run (see
+         .github/workflows/drover-switch-build.yml) before this project builds. Condition means a
+         local build without that copy step still compiles - it just has nothing to install from. -->
+    <EmbeddedResource Include="Resources\DroverSwitch.exe" Condition="Exists('Resources\DroverSwitch.exe')" />
+  </ItemGroup>
+
+</Project>

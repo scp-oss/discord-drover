@@ -3,3 +3,4 @@ obj/
 *.user
 src/DroverSwitch/Resources/version.dll
 src/DroverSwitch/Resources/drover-packet.bin
+src/DroverSwitchSetup/Resources/DroverSwitch.exe

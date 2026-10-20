@@ -81,10 +81,24 @@ jobs:
       - name: Build
         run: dotnet build drover-switch/DroverSwitch.sln -c Release --no-restore
 
-      - name: Publish
-        run: dotnet publish drover-switch/src/DroverSwitch/DroverSwitch.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -p:DebugType=none -o publish
+      - name: Publish DroverSwitch
+        run: dotnet publish drover-switch/src/DroverSwitch/DroverSwitch.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -p:DebugType=none -o publish-app
+
+      - name: Embed DroverSwitch into Setup's payload
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path drover-switch/src/DroverSwitchSetup/Resources | Out-Null
+          Copy-Item -Path publish-app/DroverSwitch.exe -Destination drover-switch/src/DroverSwitchSetup/Resources/DroverSwitch.exe
+
+      - name: Publish DroverSwitchSetup
+        run: dotnet publish drover-switch/src/DroverSwitchSetup/DroverSwitchSetup.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -p:DebugType=none -o publish-setup
 
       - uses: actions/upload-artifact@v4
         with:
           name: DroverSwitch
-          path: publish/
+          path: publish-app/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: DroverSwitchSetup
+          path: publish-setup/
