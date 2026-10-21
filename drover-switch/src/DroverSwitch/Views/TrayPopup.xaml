@@ -77,11 +77,13 @@
                                   Visibility="{Binding IsChecking, Converter={StaticResource BoolToVis}}" />
             </Grid>
 
-            <!-- UPDATE BANNER - purely informational now: updates are mandatory and apply
-                 themselves automatically in the background, there's nothing here to click. -->
-            <Border HorizontalAlignment="Stretch" Padding="12,10" Margin="0,0,0,10" CornerRadius="10"
-                    Background="{StaticResource AccentGradientBrush}"
-                    Visibility="{Binding UpdateAvailable, Converter={StaticResource BoolToVis}}">
+            <!-- UPDATE BANNER - only shown for an update found while the app was already running
+                 (the startup check installs that case automatically, no banner needed for it). -->
+            <ui:Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" MinHeight="0"
+                       Padding="12,10" Margin="0,0,0,10" CornerRadius="10"
+                       Background="{StaticResource AccentGradientBrush}"
+                       Command="{Binding ApplyUpdateCommand}"
+                       Visibility="{Binding UpdateAvailable, Converter={StaticResource BoolToVis}}">
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
@@ -93,7 +95,7 @@
                     <ui:SymbolIcon Grid.Column="1" Symbol="ArrowSync24" FontSize="16"
                                    Foreground="White" VerticalAlignment="Center" Margin="8,0,0,0" />
                 </Grid>
-            </Border>
+            </ui:Button>
 
             <!-- PROXY LIST -->
             <ItemsControl ItemsSource="{Binding Profiles}" Margin="0,0,0,8">

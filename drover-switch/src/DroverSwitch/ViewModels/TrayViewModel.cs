@@ -28,7 +28,10 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
     private int _consecutiveActiveFailures;
     private DateTime _lastAllOfflineNotification = DateTime.MinValue;
     private bool _droverJustAutoInstalled;
-    private bool _isDownloadingUpdate;
+    private string? _downloadedSetupPath;
+    private string? _pendingSetupUrl;
+    private string? _pendingSetupTag;
+    private Task<string?>? _downloadTask;
 
     public ObservableCollection<ProfileItemViewModel> Profiles { get; } = new();
 
@@ -45,6 +48,7 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
     public RelayCommand CloseDiscordCommand { get; }
     public RelayCommand RestartDiscordCommand { get; }
     public RelayCommand UninstallCommand { get; }
+    public RelayCommand ApplyUpdateCommand { get; }
     public RelayCommand ExitCommand { get; }
 
     public TrayViewModel()
@@ -68,6 +72,7 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
         CloseDiscordCommand = new RelayCommand(_ => CloseDiscord());
         RestartDiscordCommand = new RelayCommand(_ => RestartDiscord());
         UninstallCommand = new RelayCommand(_ => UninstallEverything());
+        ApplyUpdateCommand = new RelayCommand(_ => ApplyUpdate());
         ExitCommand = new RelayCommand(_ => Application.Current.Shutdown());
 
         _timer = new DispatcherTimer
@@ -79,7 +84,7 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
         // Separate, much less frequent timer - checking GitHub every 20s alongside the proxy
         // health loop would be pointless and could trip API rate limits on a long-running session.
         _updateCheckTimer = new DispatcherTimer { Interval = TimeSpan.FromHours(6) };
-        _updateCheckTimer.Tick += async (_, _) => await CheckForUpdatesAsync();
+        _updateCheckTimer.Tick += async (_, _) => await CheckForUpdatesAsync(isStartupCheck: false);
     }
 
     public void Start()
@@ -97,7 +102,7 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
         _ = RunCheckCycleAsync();
 
         _updateCheckTimer.Start();
-        _ = CheckForUpdatesAsync();
+        _ = CheckForUpdatesAsync(isStartupCheck: true);
     }
 
     public bool AutoModeEnabled
@@ -195,9 +200,7 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
         }
     }
 
-    /// <summary>Purely informational now - updates install automatically and mandatorily, there's
-    /// nothing left for the user to click here.</summary>
-    public string UpdateBannerText => $"Устанавливается обновление: {LatestVersionTag}";
+    public string UpdateBannerText => $"Доступна новая версия: {LatestVersionTag}";
 
     /// <summary>Always-visible "which one is actually active" line - independent of whether the
     /// row highlighting itself is noticeable, so it's never ambiguous which proxy is in drover.ini.</summary>
@@ -434,33 +437,69 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
         }
     }
 
-    private async Task CheckForUpdatesAsync()
+    /// <summary><paramref name="isStartupCheck"/> is the one run from Start() - nothing is "in
+    /// progress" yet right after launch, so an update found there installs itself immediately, no
+    /// banner or click needed. Every later check (the 6-hour timer) found the app already in active
+    /// use, so it only shows the banner and waits for a click instead of yanking the app out from
+    /// under the user.</summary>
+    private async Task CheckForUpdatesAsync(bool isStartupCheck)
     {
         var result = await UpdateChecker.CheckAsync();
         if (!result.HasUpdate)
             return;
 
         LatestVersionTag = result.Tag;
+
+        if (isStartupCheck)
+        {
+            NotificationRequested?.Invoke($"Найдено обновление DroverSwitch {result.Tag} - устанавливается...");
+            var path = await EnsureSetupDownloadedAsync(result.SetupDownloadUrl, result.Tag);
+            if (path is not null)
+                LaunchSetupAndShutdown(path);
+            return;
+        }
+
+        _pendingSetupUrl = result.SetupDownloadUrl;
+        _pendingSetupTag = result.Tag;
         UpdateAvailable = true;
 
-        NotificationRequested?.Invoke($"Найдено обновление DroverSwitch {result.Tag} - скачивается и будет установлено автоматически.");
+        NotificationRequested?.Invoke(
+            $"Доступна новая версия DroverSwitch: {result.Tag}. Нажмите на баннер в приложении, чтобы установить.");
 
-        // Updates are mandatory, not opt-in - there's no "click to install" step to wait on.
-        await DownloadAndApplyUpdateAsync(result.SetupDownloadUrl, result.Tag);
+        // Fetch it ahead of time so clicking the banner is a near-instant restart-and-update
+        // instead of making the user wait through a download first.
+        _ = EnsureSetupDownloadedAsync(result.SetupDownloadUrl, result.Tag);
     }
 
-    /// <summary>Downloads the new DroverSwitchSetup.exe and, once it's on disk, launches it and
-    /// shuts this copy down - Setup takes it from there (overwrite + relaunch). No confirmation
-    /// dialog: updates are mandatory, matching what the user asked for. Best-effort on failure (no
-    /// network, GitHub down, disk full) - just leaves the update for the next periodic check to
-    /// retry, same as every other UpdateChecker failure mode.</summary>
-    private async Task DownloadAndApplyUpdateAsync(string? setupUrl, string? tag)
+    /// <summary>Called when the user clicks the "Доступна новая версия" banner. Reuses whatever the
+    /// background prefetch has (or is still fetching) instead of starting a second, redundant
+    /// download.</summary>
+    private async void ApplyUpdate()
     {
-        if (setupUrl is null || tag is null || _isDownloadingUpdate)
-            return;
+        var path = await EnsureSetupDownloadedAsync(_pendingSetupUrl, _pendingSetupTag);
+        if (path is not null)
+            LaunchSetupAndShutdown(path);
+        else
+            MessageBox.Show("Не удалось скачать обновление. Попробуйте ещё раз чуть позже.", "Discord Drover",
+                MessageBoxButton.OK, MessageBoxImage.Warning);
+    }
 
-        _isDownloadingUpdate = true;
-        string path;
+    /// <summary>Downloads DroverSwitchSetup.exe for the given release, or returns the one already
+    /// downloaded. Concurrent callers (the background prefetch and a banner click racing it) share
+    /// the same in-flight download instead of fetching it twice.</summary>
+    private Task<string?> EnsureSetupDownloadedAsync(string? setupUrl, string? tag)
+    {
+        if (_downloadedSetupPath is not null && File.Exists(_downloadedSetupPath))
+            return Task.FromResult<string?>(_downloadedSetupPath);
+
+        return _downloadTask ??= DownloadSetupCoreAsync(setupUrl, tag);
+    }
+
+    private async Task<string?> DownloadSetupCoreAsync(string? setupUrl, string? tag)
+    {
+        if (setupUrl is null || tag is null)
+            return null;
+
         try
         {
             using var http = new HttpClient { Timeout = TimeSpan.FromMinutes(3) };
@@ -470,20 +509,30 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
 
             // Named after the tag so a second, newer check in the same session doesn't collide
             // with - or get mistaken for - an already-downloaded older one.
-            path = Path.Combine(Path.GetTempPath(), $"DroverSwitchSetup-{tag}.exe");
+            var path = Path.Combine(Path.GetTempPath(), $"DroverSwitchSetup-{tag}.exe");
             await File.WriteAllBytesAsync(path, bytes);
+            _downloadedSetupPath = path;
+            return path;
         }
         catch
         {
-            _isDownloadingUpdate = false;
-            return;
+            return null;
         }
+        finally
+        {
+            _downloadTask = null;
+        }
+    }
 
+    private static void LaunchSetupAndShutdown(string path)
+    {
         try
         {
             // --auto-update tells Setup this launch already knows DroverSwitch is running and
-            // intends to close it - no confirmation prompt there either, since nobody would be
-            // around to answer it (this process is about to shut itself down regardless).
+            // intends to close it - either because this IS the startup check installing itself
+            // before anyone could interact with it, or because the user already clicked the banner
+            // right here; either way nobody would be around to answer a second confirmation prompt
+            // inside Setup itself.
             System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(path)
             {
                 Arguments = "--auto-update",
@@ -493,7 +542,8 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
         }
         catch
         {
-            _isDownloadingUpdate = false;
+            MessageBox.Show("Не удалось запустить установщик обновления.", "Discord Drover",
+                MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 
