@@ -32,11 +32,22 @@ public partial class TrayPopup : Wpf.Ui.Controls.FluentWindow
         }
 
         var workArea = SystemParameters.WorkArea;
-        UpdateLayout();
+
+        // ActualHeight is only trustworthy once the window has actually gone through a real layout
+        // pass - before the very first Show() of a session, SizeToContent hasn't done that yet, so
+        // it reads 0 here and this would park the window with its top edge pinned to the very
+        // bottom pixel of the screen (almost the whole window rendered off-screen, which is exactly
+        // "appears somewhere far in the bottom-right corner" on a user's very first open). Position
+        // once with the best guess available, then reposition for real right after Show() once the
+        // size is actually known.
         Left = workArea.Right - ActualWidth - 12;
         Top = workArea.Bottom - ActualHeight - 12;
 
         Show();
+
+        Left = workArea.Right - ActualWidth - 12;
+        Top = workArea.Bottom - ActualHeight - 12;
+
         Activate();
     }
 
