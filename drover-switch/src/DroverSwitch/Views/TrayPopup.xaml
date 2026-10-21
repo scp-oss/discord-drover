@@ -77,12 +77,11 @@
                                   Visibility="{Binding IsChecking, Converter={StaticResource BoolToVis}}" />
             </Grid>
 
-            <!-- UPDATE BANNER -->
-            <ui:Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" MinHeight="0"
-                       Padding="12,10" Margin="0,0,0,10" CornerRadius="10"
-                       Background="{StaticResource AccentGradientBrush}"
-                       Command="{Binding ApplyUpdateCommand}"
-                       Visibility="{Binding UpdateAvailable, Converter={StaticResource BoolToVis}}">
+            <!-- UPDATE BANNER - purely informational now: updates are mandatory and apply
+                 themselves automatically in the background, there's nothing here to click. -->
+            <Border HorizontalAlignment="Stretch" Padding="12,10" Margin="0,0,0,10" CornerRadius="10"
+                    Background="{StaticResource AccentGradientBrush}"
+                    Visibility="{Binding UpdateAvailable, Converter={StaticResource BoolToVis}}">
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
@@ -91,10 +90,10 @@
                     <TextBlock Grid.Column="0" Text="{Binding UpdateBannerText}" FontSize="12"
                                FontWeight="Medium" Foreground="White" TextWrapping="Wrap"
                                VerticalAlignment="Center" />
-                    <ui:SymbolIcon Grid.Column="1" Symbol="ArrowExportLtr24" FontSize="16"
+                    <ui:SymbolIcon Grid.Column="1" Symbol="ArrowSync24" FontSize="16"
                                    Foreground="White" VerticalAlignment="Center" Margin="8,0,0,0" />
                 </Grid>
-            </ui:Button>
+            </Border>
 
             <!-- PROXY LIST -->
             <ItemsControl ItemsSource="{Binding Profiles}" Margin="0,0,0,8">

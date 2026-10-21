@@ -28,9 +28,6 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
     private int _consecutiveActiveFailures;
     private DateTime _lastAllOfflineNotification = DateTime.MinValue;
     private bool _droverJustAutoInstalled;
-    private string? _latestReleaseUrl;
-    private string? _latestSetupDownloadUrl;
-    private string? _downloadedSetupPath;
     private bool _isDownloadingUpdate;
 
     public ObservableCollection<ProfileItemViewModel> Profiles { get; } = new();
@@ -48,7 +45,6 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
     public RelayCommand CloseDiscordCommand { get; }
     public RelayCommand RestartDiscordCommand { get; }
     public RelayCommand UninstallCommand { get; }
-    public RelayCommand ApplyUpdateCommand { get; }
     public RelayCommand ExitCommand { get; }
 
     public TrayViewModel()
@@ -72,7 +68,6 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
         CloseDiscordCommand = new RelayCommand(_ => CloseDiscord());
         RestartDiscordCommand = new RelayCommand(_ => RestartDiscord());
         UninstallCommand = new RelayCommand(_ => UninstallEverything());
-        ApplyUpdateCommand = new RelayCommand(_ => ApplyUpdate());
         ExitCommand = new RelayCommand(_ => Application.Current.Shutdown());
 
         _timer = new DispatcherTimer
@@ -200,7 +195,9 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
         }
     }
 
-    public string UpdateBannerText => $"Доступна новая версия: {LatestVersionTag}";
+    /// <summary>Purely informational now - updates install automatically and mandatorily, there's
+    /// nothing left for the user to click here.</summary>
+    public string UpdateBannerText => $"Устанавливается обновление: {LatestVersionTag}";
 
     /// <summary>Always-visible "which one is actually active" line - independent of whether the
     /// row highlighting itself is noticeable, so it's never ambiguous which proxy is in drover.ini.</summary>
@@ -443,31 +440,27 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
         if (!result.HasUpdate)
             return;
 
-        _latestReleaseUrl = result.ReleaseUrl;
-        _latestSetupDownloadUrl = result.SetupDownloadUrl;
         LatestVersionTag = result.Tag;
-
-        var wasAlreadyKnown = UpdateAvailable;
         UpdateAvailable = true;
 
-        if (!wasAlreadyKnown)
-            NotificationRequested?.Invoke(
-                $"Доступна новая версия DroverSwitch: {result.Tag}. Нажмите на баннер в приложении, чтобы установить.");
+        NotificationRequested?.Invoke($"Найдено обновление DroverSwitch {result.Tag} - скачивается и будет установлено автоматически.");
 
-        // Fetch the installer ahead of time so clicking the banner is a near-instant "restart now"
-        // instead of making the user wait through a download first.
-        _ = DownloadUpdateInBackgroundAsync(result.SetupDownloadUrl, result.Tag);
+        // Updates are mandatory, not opt-in - there's no "click to install" step to wait on.
+        await DownloadAndApplyUpdateAsync(result.SetupDownloadUrl, result.Tag);
     }
 
-    /// <summary>Best-effort, silent background download of the new DroverSwitchSetup.exe - any
-    /// failure here just means ApplyUpdate() falls back to opening the release page in a browser
-    /// instead, same as before this feature existed.</summary>
-    private async Task DownloadUpdateInBackgroundAsync(string? setupUrl, string? tag)
+    /// <summary>Downloads the new DroverSwitchSetup.exe and, once it's on disk, launches it and
+    /// shuts this copy down - Setup takes it from there (overwrite + relaunch). No confirmation
+    /// dialog: updates are mandatory, matching what the user asked for. Best-effort on failure (no
+    /// network, GitHub down, disk full) - just leaves the update for the next periodic check to
+    /// retry, same as every other UpdateChecker failure mode.</summary>
+    private async Task DownloadAndApplyUpdateAsync(string? setupUrl, string? tag)
     {
-        if (setupUrl is null || _isDownloadingUpdate || tag is null)
+        if (setupUrl is null || tag is null || _isDownloadingUpdate)
             return;
 
         _isDownloadingUpdate = true;
+        string path;
         try
         {
             using var http = new HttpClient { Timeout = TimeSpan.FromMinutes(3) };
@@ -477,73 +470,30 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
 
             // Named after the tag so a second, newer check in the same session doesn't collide
             // with - or get mistaken for - an already-downloaded older one.
-            var path = Path.Combine(Path.GetTempPath(), $"DroverSwitchSetup-{tag}.exe");
+            path = Path.Combine(Path.GetTempPath(), $"DroverSwitchSetup-{tag}.exe");
             await File.WriteAllBytesAsync(path, bytes);
-            _downloadedSetupPath = path;
         }
         catch
         {
-            // Left as null - ApplyUpdate() falls back to the browser link.
-        }
-        finally
-        {
             _isDownloadingUpdate = false;
-        }
-    }
-
-    /// <summary>Called when the user clicks the "Доступно обновление" banner. Prefers the
-    /// already-downloaded installer (near-instant restart-and-update); falls back to just opening
-    /// the release page if the background download hasn't finished yet or failed.</summary>
-    private void ApplyUpdate()
-    {
-        if (_downloadedSetupPath is not null && File.Exists(_downloadedSetupPath))
-        {
-            var confirm = MessageBox.Show(
-                $"Доступно обновление {LatestVersionTag}. Перезапустить DroverSwitch, чтобы установить его?",
-                "Discord Drover",
-                MessageBoxButton.YesNo,
-                MessageBoxImage.Question);
-            if (confirm != MessageBoxResult.Yes)
-                return;
-
-            try
-            {
-                // --auto-update tells Setup the user already confirmed closing the running copy
-                // right here, a second confirmation inside Setup itself would have nobody to answer it.
-                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(_downloadedSetupPath)
-                {
-                    Arguments = "--auto-update",
-                    UseShellExecute = true,
-                });
-                Application.Current.Shutdown();
-            }
-            catch
-            {
-                MessageBox.Show("Не удалось запустить установщик обновления.", "Discord Drover",
-                    MessageBoxButton.OK, MessageBoxImage.Error);
-            }
-
             return;
         }
-
-        OpenReleasePage();
-    }
-
-    private void OpenReleasePage()
-    {
-        if (_latestReleaseUrl is null)
-            return;
 
         try
         {
-            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(_latestReleaseUrl)
+            // --auto-update tells Setup this launch already knows DroverSwitch is running and
+            // intends to close it - no confirmation prompt there either, since nobody would be
+            // around to answer it (this process is about to shut itself down regardless).
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(path)
             {
+                Arguments = "--auto-update",
                 UseShellExecute = true,
             });
+            Application.Current.Shutdown();
         }
         catch
         {
-            // Nothing more useful to do if the OS can't hand off a URL to a browser.
+            _isDownloadingUpdate = false;
         }
     }
 
