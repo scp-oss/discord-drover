@@ -14,7 +14,7 @@
     <!-- Bump this alongside the GitHub release tag (drover-switch-vX.Y.Z) - keep them in sync so
          the exe's own file properties (right-click - Properties - Details) always match the
          release it came from. -->
-    <Version>0.2.13</Version>
+    <Version>0.2.14</Version>
   </PropertyGroup>
 
   <ItemGroup>

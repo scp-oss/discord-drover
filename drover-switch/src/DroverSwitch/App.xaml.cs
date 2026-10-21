@@ -84,6 +84,17 @@ public partial class App : Application
         _trayIcon.ForceCreate();
         _trayIcon.TrayLeftMouseUp += (_, _) => _popup?.ToggleNearTray();
 
+        // Clicking the Windows toast itself used to do nothing. If it was the "update available"
+        // one, jump straight to installing instead of making the user go find the banner in the
+        // popup themselves; for every other toast, just open the popup, same as a left-click.
+        _trayIcon.TrayBalloonTipClicked += (_, _) =>
+        {
+            if (_viewModel!.UpdateAvailable)
+                _viewModel.ApplyUpdateCommand.Execute(null);
+            else
+                _popup?.ToggleNearTray();
+        };
+
         // Right-click gives quick access to Open/Exit and the full uninstall without needing the
         // left-click popup first - the uninstall button used to also live in the popup itself, but
         // a rare destructive action didn't need a permanent spot in the everyday window too.
