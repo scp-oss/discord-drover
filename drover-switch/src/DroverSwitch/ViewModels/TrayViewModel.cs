@@ -436,18 +436,33 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
 
     /// <summary>Full uninstall: removes drover (version.dll, drover-packet.bin, drover.ini) and
     /// DroverSwitch's own companion file from every discovered Discord folder, plus this app's own
-    /// saved settings. version.dll is locked while Discord runs, same as during a switch, so this
-    /// needs Discord closed first - same reason, not a new rule.</summary>
+    /// saved settings. version.dll is locked while Discord runs, same as during a switch, so a
+    /// running Discord is offered to be closed right here instead of just refusing.</summary>
     private void UninstallEverything()
     {
-        if (DiscordLocator.IsAnyDiscordRunning())
+        var running = DiscordLocator.GetRunningDiscordProcesses().ToList();
+        if (running.Count > 0)
         {
-            MessageBox.Show(
-                "Сначала закройте Discord — version.dll нельзя удалить, пока он запущен.",
-                "Discord Drover",
-                MessageBoxButton.OK,
+            var closeConfirm = MessageBox.Show(
+                "Discord сейчас запущен — version.dll нельзя удалить, пока он работает. Закрыть Discord и продолжить удаление?",
+                "Удалить Discord Drover",
+                MessageBoxButton.YesNo,
                 MessageBoxImage.Warning);
-            return;
+            if (closeConfirm != MessageBoxResult.Yes)
+                return;
+
+            KillDiscordProcesses(running);
+            IsDiscordRunning = DiscordLocator.IsAnyDiscordRunning();
+
+            if (DiscordLocator.IsAnyDiscordRunning())
+            {
+                MessageBox.Show(
+                    "Не удалось закрыть Discord. Закройте его вручную и повторите удаление.",
+                    "Discord Drover",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error);
+                return;
+            }
         }
 
         var confirm = MessageBox.Show(
@@ -460,24 +475,38 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
         if (confirm != MessageBoxResult.Yes)
             return;
 
+        var lockedFiles = new List<string>();
         foreach (var dir in DiscordLocator.FindDiscordDirs())
         {
-            TryDelete(Path.Combine(dir, DiscordLocator.DllFileName));
-            TryDelete(Path.Combine(dir, DiscordLocator.OptionsFileName));
-            TryDelete(Path.Combine(dir, DiscordLocator.PacketFileName));
+            TryDelete(Path.Combine(dir, DiscordLocator.DllFileName), lockedFiles);
+            TryDelete(Path.Combine(dir, DiscordLocator.OptionsFileName), lockedFiles);
+            TryDelete(Path.Combine(dir, DiscordLocator.PacketFileName), lockedFiles);
             // Older versions mirrored a drover-switch.ini companion file here - no longer written,
             // but still cleaned up on uninstall in case a leftover one is still sitting around.
-            TryDelete(Path.Combine(dir, "drover-switch.ini"));
+            TryDelete(Path.Combine(dir, "drover-switch.ini"), lockedFiles);
         }
 
         AutostartService.SetEnabled(false);
         SettingsStore.Delete();
 
-        MessageBox.Show("Discord Drover удалён.", "Discord Drover", MessageBoxButton.OK, MessageBoxImage.Information);
+        if (lockedFiles.Count > 0)
+        {
+            MessageBox.Show(
+                "Discord Drover удалён, но не удалось удалить файлы (возможно, заняты другим процессом):\n\n" +
+                string.Join("\n", lockedFiles),
+                "Discord Drover",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+        }
+        else
+        {
+            MessageBox.Show("Discord Drover удалён.", "Discord Drover", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+
         Application.Current.Shutdown();
     }
 
-    private static void TryDelete(string path)
+    private static void TryDelete(string path, List<string> lockedFiles)
     {
         try
         {
@@ -486,7 +515,9 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
         }
         catch
         {
-            // Best-effort cleanup - nothing more we can usefully do about e.g. a permissions error here.
+            // Most likely still locked by a lingering process holding version.dll open - surface
+            // this to the caller instead of swallowing it, so the user knows uninstall was partial.
+            lockedFiles.Add(path);
         }
     }
 
