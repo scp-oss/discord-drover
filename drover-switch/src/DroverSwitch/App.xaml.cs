@@ -84,14 +84,19 @@ public partial class App : Application
         _trayIcon.ForceCreate();
         _trayIcon.TrayLeftMouseUp += (_, _) => _popup?.ToggleNearTray();
 
-        // Right-click gives quick access to Exit and the full uninstall without first opening the
-        // popup - left-click still opens the popup for everything else (switching, adding, etc.).
+        // Right-click gives quick access to Open/Exit and the full uninstall without needing the
+        // left-click popup first - the uninstall button used to also live in the popup itself, but
+        // a rare destructive action didn't need a permanent spot in the everyday window too.
+        var openMenuItem = new MenuItem { Header = "Открыть" };
+        openMenuItem.Click += (_, _) => _popup?.ToggleNearTray();
+
         _trayIcon.ContextMenu = new ContextMenu
         {
             Items =
             {
                 new MenuItem { Header = $"Версия: {GetVersionText()}", IsEnabled = false },
                 new Separator(),
+                openMenuItem,
                 new MenuItem { Header = "Удалить Discord Drover", Command = _viewModel.UninstallCommand },
                 new Separator(),
                 new MenuItem { Header = "Выход", Command = _viewModel.ExitCommand },
@@ -113,8 +118,19 @@ public partial class App : Application
         return version is null ? "неизвестна" : $"{version.Major}.{version.Minor}.{version.Build}";
     }
 
+    /// <summary>WPF's own WindowChrome machinery (used by every FluentWindow for its custom title
+    /// bar) calls into DwmExtendFrameIntoClientArea whenever Windows toggles desktop composition -
+    /// which happens transiently during an RDP session, a lock/unlock, or a GPU driver reset - and
+    /// throws if composition happens to be off at that exact moment. WPF re-applies the frame once
+    /// composition comes back on its own; it's not a real crash and not worth alarming the user over.</summary>
+    private static bool IsBenignDwmCompositionError(Exception? ex) =>
+        ex is System.Runtime.InteropServices.COMException { HResult: unchecked((int)0x80263001) };
+
     private static void ReportCrash(Exception? ex, string source)
     {
+        if (IsBenignDwmCompositionError(ex))
+            return;
+
         var text = $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] {source}\n{ex}\n\n";
         try
         {

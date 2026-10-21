@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 using System.IO;
+using System.Net.Http;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
@@ -28,6 +29,9 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
     private DateTime _lastAllOfflineNotification = DateTime.MinValue;
     private bool _droverJustAutoInstalled;
     private string? _latestReleaseUrl;
+    private string? _latestSetupDownloadUrl;
+    private string? _downloadedSetupPath;
+    private bool _isDownloadingUpdate;
 
     public ObservableCollection<ProfileItemViewModel> Profiles { get; } = new();
 
@@ -44,7 +48,7 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
     public RelayCommand CloseDiscordCommand { get; }
     public RelayCommand RestartDiscordCommand { get; }
     public RelayCommand UninstallCommand { get; }
-    public RelayCommand OpenReleasePageCommand { get; }
+    public RelayCommand ApplyUpdateCommand { get; }
     public RelayCommand ExitCommand { get; }
 
     public TrayViewModel()
@@ -68,7 +72,7 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
         CloseDiscordCommand = new RelayCommand(_ => CloseDiscord());
         RestartDiscordCommand = new RelayCommand(_ => RestartDiscord());
         UninstallCommand = new RelayCommand(_ => UninstallEverything());
-        OpenReleasePageCommand = new RelayCommand(_ => OpenReleasePage());
+        ApplyUpdateCommand = new RelayCommand(_ => ApplyUpdate());
         ExitCommand = new RelayCommand(_ => Application.Current.Shutdown());
 
         _timer = new DispatcherTimer
@@ -221,6 +225,7 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
     public void AddProfiles(IEnumerable<ProxyProfile> profiles)
     {
         var addedAny = false;
+        var addedNames = new List<string>();
 
         foreach (var profile in profiles)
         {
@@ -230,6 +235,7 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
                 name = $"{profile.Name} ({suffix++})";
 
             _settings.Profiles.Add(new ProxyProfile { Name = name, ProxyUrl = profile.ProxyUrl });
+            addedNames.Add(name);
             addedAny = true;
         }
 
@@ -239,6 +245,7 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
         RebuildProfilesCollection();
         Save();
         _ = RunCheckCycleAsync();
+        _ = AutoActivateFirstReachableIfNoneActiveAsync(addedNames);
     }
 
     /// <summary>Called by the dialog. <paramref name="originalName"/> is null when adding a brand-new profile.</summary>
@@ -257,7 +264,9 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
             return;
         }
 
-        if (originalName is null)
+        var isNewProfile = originalName is null;
+
+        if (isNewProfile)
         {
             _settings.Profiles.Add(profile);
         }
@@ -278,6 +287,34 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
         RebuildProfilesCollection();
         Save();
         _ = RunCheckCycleAsync();
+
+        if (isNewProfile)
+            _ = AutoActivateFirstReachableIfNoneActiveAsync(new List<string> { profile.Name });
+    }
+
+    /// <summary>If nothing is active yet (first-ever add, or every profile got removed), picks the
+    /// first of the just-added profiles that's actually reachable and activates it - so adding
+    /// configs doesn't leave drover.ini on "direct" indefinitely until the user picks one by hand.
+    /// Skips silently if none of them are reachable, or if something else already set an active
+    /// profile by the time a check comes back.</summary>
+    private async Task AutoActivateFirstReachableIfNoneActiveAsync(List<string> addedNames)
+    {
+        if (!string.IsNullOrEmpty(_settings.ActiveProfileName))
+            return;
+
+        foreach (var name in addedNames)
+        {
+            var item = Profiles.FirstOrDefault(p => p.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+            if (item is null)
+                continue;
+
+            var (reachable, _) = await ProxyHealthChecker.CheckAsync(item.ProxyUrl);
+            if (!reachable || !string.IsNullOrEmpty(_settings.ActiveProfileName))
+                continue;
+
+            ActivateInternal(item, notifyAuto: true);
+            return;
+        }
     }
 
     private void RemoveProfile(ProfileItemViewModel item)
@@ -407,13 +444,89 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
             return;
 
         _latestReleaseUrl = result.ReleaseUrl;
+        _latestSetupDownloadUrl = result.SetupDownloadUrl;
         LatestVersionTag = result.Tag;
 
         var wasAlreadyKnown = UpdateAvailable;
         UpdateAvailable = true;
 
         if (!wasAlreadyKnown)
-            NotificationRequested?.Invoke($"Доступна новая версия DroverSwitch: {result.Tag}. Нажмите, чтобы открыть релиз.");
+            NotificationRequested?.Invoke(
+                $"Доступна новая версия DroverSwitch: {result.Tag}. Нажмите на баннер в приложении, чтобы установить.");
+
+        // Fetch the installer ahead of time so clicking the banner is a near-instant "restart now"
+        // instead of making the user wait through a download first.
+        _ = DownloadUpdateInBackgroundAsync(result.SetupDownloadUrl, result.Tag);
+    }
+
+    /// <summary>Best-effort, silent background download of the new DroverSwitchSetup.exe - any
+    /// failure here just means ApplyUpdate() falls back to opening the release page in a browser
+    /// instead, same as before this feature existed.</summary>
+    private async Task DownloadUpdateInBackgroundAsync(string? setupUrl, string? tag)
+    {
+        if (setupUrl is null || _isDownloadingUpdate || tag is null)
+            return;
+
+        _isDownloadingUpdate = true;
+        try
+        {
+            using var http = new HttpClient { Timeout = TimeSpan.FromMinutes(3) };
+            http.DefaultRequestHeaders.UserAgent.ParseAdd("DroverSwitch-UpdateChecker");
+
+            var bytes = await http.GetByteArrayAsync(setupUrl);
+
+            // Named after the tag so a second, newer check in the same session doesn't collide
+            // with - or get mistaken for - an already-downloaded older one.
+            var path = Path.Combine(Path.GetTempPath(), $"DroverSwitchSetup-{tag}.exe");
+            await File.WriteAllBytesAsync(path, bytes);
+            _downloadedSetupPath = path;
+        }
+        catch
+        {
+            // Left as null - ApplyUpdate() falls back to the browser link.
+        }
+        finally
+        {
+            _isDownloadingUpdate = false;
+        }
+    }
+
+    /// <summary>Called when the user clicks the "Доступно обновление" banner. Prefers the
+    /// already-downloaded installer (near-instant restart-and-update); falls back to just opening
+    /// the release page if the background download hasn't finished yet or failed.</summary>
+    private void ApplyUpdate()
+    {
+        if (_downloadedSetupPath is not null && File.Exists(_downloadedSetupPath))
+        {
+            var confirm = MessageBox.Show(
+                $"Доступно обновление {LatestVersionTag}. Перезапустить DroverSwitch, чтобы установить его?",
+                "Discord Drover",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question);
+            if (confirm != MessageBoxResult.Yes)
+                return;
+
+            try
+            {
+                // --auto-update tells Setup the user already confirmed closing the running copy
+                // right here, a second confirmation inside Setup itself would have nobody to answer it.
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(_downloadedSetupPath)
+                {
+                    Arguments = "--auto-update",
+                    UseShellExecute = true,
+                });
+                Application.Current.Shutdown();
+            }
+            catch
+            {
+                MessageBox.Show("Не удалось запустить установщик обновления.", "Discord Drover",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+
+            return;
+        }
+
+        OpenReleasePage();
     }
 
     private void OpenReleasePage()

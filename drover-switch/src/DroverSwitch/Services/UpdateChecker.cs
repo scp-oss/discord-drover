@@ -17,7 +17,7 @@ public static class UpdateChecker
     private const string ReleasesApiUrl = "https://api.github.com/repos/scp-oss/discord-drover/releases";
     private const string TagPrefix = "drover-switch-v";
 
-    public readonly record struct Result(bool HasUpdate, string? Tag, string? ReleaseUrl);
+    public readonly record struct Result(bool HasUpdate, string? Tag, string? ReleaseUrl, string? SetupDownloadUrl);
 
     public static async Task<Result> CheckAsync(CancellationToken ct = default)
     {
@@ -33,6 +33,7 @@ public static class UpdateChecker
             Version? bestVersion = null;
             string? bestTag = null;
             string? bestUrl = null;
+            string? bestSetupUrl = null;
 
             foreach (var release in doc.RootElement.EnumerateArray())
             {
@@ -51,12 +52,13 @@ public static class UpdateChecker
                     bestVersion = version;
                     bestTag = tag;
                     bestUrl = GetString(release, "html_url");
+                    bestSetupUrl = FindSetupAssetUrl(release);
                 }
             }
 
             var current = typeof(UpdateChecker).Assembly.GetName().Version ?? new Version(0, 0, 0, 0);
             if (bestVersion is not null && bestVersion > current && bestUrl is not null)
-                return new Result(true, bestTag, bestUrl);
+                return new Result(true, bestTag, bestUrl, bestSetupUrl);
 
             return default;
         }
@@ -64,6 +66,20 @@ public static class UpdateChecker
         {
             return default;
         }
+    }
+
+    private static string? FindSetupAssetUrl(JsonElement release)
+    {
+        if (!release.TryGetProperty("assets", out var assets) || assets.ValueKind != JsonValueKind.Array)
+            return null;
+
+        foreach (var asset in assets.EnumerateArray())
+        {
+            if (string.Equals(GetString(asset, "name"), "DroverSwitchSetup.exe", StringComparison.OrdinalIgnoreCase))
+                return GetString(asset, "browser_download_url");
+        }
+
+        return null;
     }
 
     private static bool GetBool(JsonElement element, string name) =>

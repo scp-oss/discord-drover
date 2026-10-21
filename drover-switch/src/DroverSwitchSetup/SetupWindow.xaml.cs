@@ -2,6 +2,7 @@ using System;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Threading;
@@ -90,7 +91,11 @@ public partial class SetupWindow : Wpf.Ui.Controls.FluentWindow, INotifyProperty
 
             if (bundledVersion is not null && (installedVersion is null || bundledVersion > installedVersion))
             {
-                if (IsAlreadyRunning())
+                // --auto-update means DroverSwitch itself launched this Setup after the user already
+                // confirmed inside the app (the update banner's own restart prompt) - asking again
+                // here would just be a dialog nobody is around to click, since DroverSwitch is about
+                // to close itself regardless.
+                if (IsAlreadyRunning() && !IsAutoUpdateLaunch())
                 {
                     IsBusy = false;
                     StatusText = $"Discord Drover сейчас запущен. Доступно обновление до {bundledVersion}. " +
@@ -212,6 +217,9 @@ public partial class SetupWindow : Wpf.Ui.Controls.FluentWindow, INotifyProperty
         mutex?.Dispose();
         return found;
     }
+
+    private static bool IsAutoUpdateLaunch() =>
+        Environment.GetCommandLineArgs().Any(a => a.Equals("--auto-update", StringComparison.OrdinalIgnoreCase));
 
     private static void TerminateRunningInstance()
     {
