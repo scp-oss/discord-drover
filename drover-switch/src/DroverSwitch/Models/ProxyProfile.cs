@@ -3,7 +3,7 @@ namespace DroverSwitch.Models;
 /// <summary>
 /// One saved proxy config. Empty <see cref="ProxyUrl"/> means "Direct" (no proxy),
 /// matching drover's own "Direct mode" (UDP-only bypass, no TCP proxy).
-/// Name is the unique key (drover-switch.ini keys profiles by name, so there is no separate id).
+/// Name is the unique key (settings.json keys profiles by name, so there is no separate id).
 /// </summary>
 public class ProxyProfile
 {

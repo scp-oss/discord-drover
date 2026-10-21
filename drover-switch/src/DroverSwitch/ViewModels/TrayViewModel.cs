@@ -26,7 +26,6 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
     private readonly DispatcherTimer _updateCheckTimer;
     private int _consecutiveActiveFailures;
     private DateTime _lastAllOfflineNotification = DateTime.MinValue;
-    private DateTime _lastMirrorWriteUtc = DateTime.MinValue;
     private bool _droverJustAutoInstalled;
     private string? _latestReleaseUrl;
 
@@ -50,11 +49,13 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
 
     public TrayViewModel()
     {
+        var isFirstRun = !SettingsStore.Exists();
         _settings = SettingsStore.Load();
         EnsureDroverInstalledEverywhere();
-        ImportFromCompanionFileIfPresent();
+        if (isFirstRun)
+            ImportExistingDroverIniProxyIfAny();
         RebuildProfilesCollection();
-        SaveAndMirror();
+        Save();
 
         ActivateProfileCommand = new RelayCommand(p =>
         {
@@ -109,7 +110,7 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
                 return;
             _settings.AutoModeEnabled = value;
             _consecutiveActiveFailures = 0;
-            SaveAndMirror();
+            Save();
             OnPropertyChanged();
         }
     }
@@ -124,7 +125,7 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
                 return;
             _settings.StartWithWindows = value;
             AutostartService.SetEnabled(value);
-            SaveAndMirror();
+            Save();
             OnPropertyChanged();
         }
     }
@@ -236,7 +237,7 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
             return;
 
         RebuildProfilesCollection();
-        SaveAndMirror();
+        Save();
         _ = RunCheckCycleAsync();
     }
 
@@ -275,7 +276,7 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
         }
 
         RebuildProfilesCollection();
-        SaveAndMirror();
+        Save();
         _ = RunCheckCycleAsync();
     }
 
@@ -286,7 +287,7 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
             SetActiveProfileName(null);
 
         RebuildProfilesCollection();
-        SaveAndMirror();
+        Save();
     }
 
     /// <summary>The Discord status card has one button whose action depends on current state -
@@ -464,7 +465,9 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
             TryDelete(Path.Combine(dir, DiscordLocator.DllFileName));
             TryDelete(Path.Combine(dir, DiscordLocator.OptionsFileName));
             TryDelete(Path.Combine(dir, DiscordLocator.PacketFileName));
-            TryDelete(Path.Combine(dir, ProfilePoolFile.FileName));
+            // Older versions mirrored a drover-switch.ini companion file here - no longer written,
+            // but still cleaned up on uninstall in case a leftover one is still sitting around.
+            TryDelete(Path.Combine(dir, "drover-switch.ini"));
         }
 
         AutostartService.SetEnabled(false);
@@ -526,7 +529,7 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
         }
 
         SetActiveProfileName(item.Name);
-        SaveAndMirror(allDirs);
+        Save();
 
         foreach (var p in Profiles)
             p.IsActive = p.Name.Equals(item.Name, StringComparison.OrdinalIgnoreCase);
@@ -573,8 +576,6 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
 
         try
         {
-            ReloadCompanionFileIfChangedByHand();
-
             IsDiscordRunning = DiscordLocator.IsAnyDiscordRunning();
 
             // Rows keep showing their last known ping while a new cycle runs instead of flashing
@@ -635,50 +636,12 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
         }
     }
 
-    /// <summary>
-    /// drover-switch.ini is meant to be hand-editable, same spirit as drover.ini/drover-packet.bin.
-    /// If its on-disk timestamp moved since we last wrote it ourselves, someone edited it by hand -
-    /// reload from it. Best-effort: only the first installed dir found is watched.
-    /// </summary>
-    private void ReloadCompanionFileIfChangedByHand()
+    /// <summary>First-run only (gated by the caller): if drover.ini already has a proxy configured -
+    /// set up by hand before the switcher existed - import it as the active profile instead of
+    /// silently hiding what's actually in effect behind the default "Прямое соединение" seed.</summary>
+    private void ImportExistingDroverIniProxyIfAny()
     {
-        var dir = DiscordLocator.FindDroverInstalledDirs(DiscordLocator.FindDiscordDirs()).FirstOrDefault();
-        if (dir is null)
-            return;
-
-        var pool = ProfilePoolFile.TryRead(dir);
-        if (pool is null)
-            return;
-
-        if (pool.WrittenAtUtc <= _lastMirrorWriteUtc.AddSeconds(1))
-            return; // this is (very likely) a file we wrote ourselves, not a manual edit.
-
-        _settings.Profiles = pool.Profiles;
-        SetActiveProfileName(pool.ActiveName);
-        RebuildProfilesCollection();
-        SettingsStore.Save(_settings);
-    }
-
-    private void ImportFromCompanionFileIfPresent()
-    {
-        var installedDirs = DiscordLocator.FindDroverInstalledDirs(DiscordLocator.FindDiscordDirs());
-
-        foreach (var dir in installedDirs)
-        {
-            var pool = ProfilePoolFile.TryRead(dir);
-            if (pool is null || pool.Profiles.Count == 0)
-                continue;
-
-            _settings.Profiles = pool.Profiles;
-            SetActiveProfileName(pool.ActiveName);
-            return;
-        }
-
-        // First run: no drover-switch.ini yet anywhere, so we're still sitting on the
-        // CreateDefault() seed ("Прямое соединение"). If drover.ini already has a proxy
-        // configured - set up by hand before the switcher existed - import that as the active
-        // profile instead of silently hiding what's actually in effect.
-        foreach (var dir in installedDirs)
+        foreach (var dir in DiscordLocator.FindDroverInstalledDirs(DiscordLocator.FindDiscordDirs()))
         {
             var existingProxy = DroverIniService.ReadProxy(dir);
             if (string.IsNullOrWhiteSpace(existingProxy))
@@ -706,17 +669,12 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
         }
     }
 
-    private void SaveAndMirror(List<string>? installedDirs = null)
-    {
-        SettingsStore.Save(_settings);
-
-        var dirs = installedDirs ?? DiscordLocator.FindDroverInstalledDirs(DiscordLocator.FindDiscordDirs());
-        foreach (var dir in dirs)
-            ProfilePoolFile.Write(dir, _settings.Profiles, _settings.ActiveProfileName);
-
-        if (dirs.Count > 0)
-            _lastMirrorWriteUtc = DateTime.UtcNow;
-    }
+    /// <summary>The only persistence DroverSwitch's own state has - %AppData%\DroverSwitch\
+    /// settings.json. No longer mirrored into Discord's own (version-numbered, auto-update-churned)
+    /// install folder; that mirroring was fragile by construction and this app already installs
+    /// itself under %AppData% now too, so keeping all of its own state there is simpler and more
+    /// robust than spreading it across two places.</summary>
+    private void Save() => SettingsStore.Save(_settings);
 
     public void Dispose()
     {

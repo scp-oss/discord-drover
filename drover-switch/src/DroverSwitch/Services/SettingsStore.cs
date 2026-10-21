@@ -14,6 +14,10 @@ public static class SettingsStore
 
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
 
+    /// <summary>True once settings.json has ever been saved - used to tell a genuine first run
+    /// (nothing saved yet, Load() is about to return CreateDefault()) apart from every later one.</summary>
+    public static bool Exists() => File.Exists(FilePath);
+
     public static AppSettings Load()
     {
         try

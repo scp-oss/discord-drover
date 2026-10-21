@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
@@ -89,6 +90,8 @@ public partial class App : Application
         {
             Items =
             {
+                new MenuItem { Header = $"Версия: {GetVersionText()}", IsEnabled = false },
+                new Separator(),
                 new MenuItem { Header = "Удалить Discord Drover", Command = _viewModel.UninstallCommand },
                 new Separator(),
                 new MenuItem { Header = "Выход", Command = _viewModel.ExitCommand },
@@ -102,6 +105,12 @@ public partial class App : Application
             Dispatcher.Invoke(() => _trayIcon!.ShowNotification("Discord Drover", message));
 
         _viewModel.Start();
+    }
+
+    private static string GetVersionText()
+    {
+        var version = Assembly.GetExecutingAssembly().GetName().Version;
+        return version is null ? "неизвестна" : $"{version.Major}.{version.Minor}.{version.Build}";
     }
 
     private static void ReportCrash(Exception? ex, string source)

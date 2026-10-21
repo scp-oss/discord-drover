@@ -24,36 +24,14 @@ It never touches drover's own Delphi code (`version.dll`). It only reads/writes 
   block). DroverSwitch shows a hint and an optional "Перезапустить Discord" button when Discord is
   currently running, instead of pretending the switch is instant.
 
-## Why there's a second file next to drover.ini
+## Where the pool of configs lives
 
 `drover.ini` has room for exactly one `proxy =` line - that's drover's own format, by design, and this
-app doesn't change it. So the full pool of configs (the ones that aren't currently active) is kept in a
-companion file written right next to `drover.ini`, in every discovered Discord install folder:
-
-```
-drover-switch.ini
-```
-
-```ini
-; DroverSwitch - pool of proxy configs for Discord Drover.
-; drover.ini only stores ONE active proxy, so the rest of the list lives here.
-; Safe to edit by hand: DroverSwitch re-reads this file automatically.
-
-[active]
-proxy = EU
-
-[profiles]
-EU = http://1.2.3.4:8080
-Backup-RU = socks5://5.6.7.8:1080
-Direct =
-```
-
-This is deliberately plain text and hand-editable, the same spirit as drover's own `drover-packet.bin`
-("re-read before every connection, no restart of Discord needed"). DroverSwitch notices when the file's
-timestamp changed by something other than itself and reloads it - no need to restart DroverSwitch either.
-
-Its own persistent cache (survives even if Discord is reinstalled and the folder above disappears) lives
-at `%APPDATA%\DroverSwitch\settings.json`.
+app doesn't change it. The full pool of configs (the ones that aren't currently active) lives entirely in
+DroverSwitch's own state at `%APPDATA%\DroverSwitch\settings.json` - independent of Discord's own install
+folder, which gets replaced wholesale on every Discord auto-update (`app-X.Y.Z` → `app-X.Y.Z+1`) and so
+was never a reliable place to keep anything long-lived. Only the one active config's proxy ever gets
+written into `drover.ini` itself, in every discovered Discord install folder.
 
 ## Finding Discord
 
@@ -64,8 +42,9 @@ installed variant's live `app-X.Y.Z` folder the same way drover's own installer 
 contain an executable). Every config switch is written to **all** of them, so stable/Canary/PTB stay in
 sync - again, matching drover's own installer behavior.
 
-If no folder with `version.dll` installed is found, DroverSwitch tells you to run `drover.exe`'s installer
-first; it does not install drover itself.
+If a discovered Discord folder doesn't have `version.dll` yet, DroverSwitch installs it there itself (and
+a default `drover-packet.bin`) on first run, bundled from the upstream `hdrover/discord-drover` release at
+build time - no need to run `drover.exe`'s own installer by hand first.
 
 ## How "reachable" is measured
 

@@ -13,7 +13,7 @@
     <!-- Keep this in lockstep with DroverSwitch's own <Version> at every release - SetupWindow
          compares this assembly's own version against the installed copy's to decide whether the
          embedded payload is an update. Bump both together, same as the release tag. -->
-    <Version>0.2.6</Version>
+    <Version>0.2.8</Version>
   </PropertyGroup>
 
   <ItemGroup>

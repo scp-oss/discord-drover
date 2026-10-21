@@ -15,7 +15,7 @@ namespace DroverSwitchSetup;
 /// Installs/updates/launches DroverSwitch. Three cases on every run:
 ///   1. Not installed yet -> extract the embedded exe to %AppData%\DroverSwitch and launch it.
 ///   2. Installed but older than the version embedded in this Setup build -> close the running
-///      copy (if any), overwrite it, relaunch.
+///      copy (if any, after confirming - see ShowConfirmButtons), overwrite it, relaunch.
 ///   3. Installed and already current -> just launch it (or say "already running" if it is).
 /// Uninstalling is deliberately NOT handled here - DroverSwitch's own tray menu / popup already has
 /// a fully working, tested uninstall (including cleaning up drover.ini/version.dll from Discord's
@@ -32,6 +32,14 @@ public partial class SetupWindow : Wpf.Ui.Controls.FluentWindow, INotifyProperty
     private static readonly string InstallDir = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "DroverSwitch");
     private static readonly string InstalledExePath = Path.Combine(InstallDir, "DroverSwitch.exe");
+
+    // A plain text marker, not FileVersionInfo off the installed exe - reading the native Win32
+    // VERSIONINFO resource back out of a published single-file bundle turned out unreliable in
+    // practice (every run reported an update as available, even onto itself). This file is written
+    // right after every successful install/update, so it always reflects what's actually on disk.
+    private static readonly string VersionMarkerPath = Path.Combine(InstallDir, "version.txt");
+
+    private TaskCompletionSource<bool>? _confirmTcs;
 
     public SetupWindow()
     {
@@ -54,29 +62,54 @@ public partial class SetupWindow : Wpf.Ui.Controls.FluentWindow, INotifyProperty
         set { _statusText = value; OnPropertyChanged(); }
     }
 
+    private bool _showConfirmButtons;
+    public bool ShowConfirmButtons
+    {
+        get => _showConfirmButtons;
+        set { _showConfirmButtons = value; OnPropertyChanged(); }
+    }
+
     public async Task RunAsync()
     {
         try
         {
             Directory.CreateDirectory(InstallDir);
+            var bundledVersion = Assembly.GetExecutingAssembly().GetName().Version;
 
             if (!File.Exists(InstalledExePath))
             {
                 StatusText = "Устанавливаю Discord Drover...";
                 await ExtractEmbeddedExeAsync();
+                WriteVersionMarker(bundledVersion);
                 LaunchInstalled();
                 Close();
                 return;
             }
 
-            var installedVersion = TryGetFileVersion(InstalledExePath);
-            var bundledVersion = Assembly.GetExecutingAssembly().GetName().Version;
+            var installedVersion = ReadVersionMarker();
 
             if (bundledVersion is not null && (installedVersion is null || bundledVersion > installedVersion))
             {
+                if (IsAlreadyRunning())
+                {
+                    IsBusy = false;
+                    StatusText = $"Discord Drover сейчас запущен. Доступно обновление до {bundledVersion}. " +
+                                 "Закрыть и обновить?";
+                    var confirmed = await AskConfirmationAsync();
+                    if (!confirmed)
+                    {
+                        StatusText = "Обновление отменено.";
+                        await Task.Delay(1500);
+                        Close();
+                        return;
+                    }
+                    IsBusy = true;
+                }
+
                 StatusText = $"Обновляю Discord Drover до {bundledVersion}...";
                 TerminateRunningInstance();
                 await ExtractEmbeddedExeAsync();
+                WriteVersionMarker(bundledVersion);
                 LaunchInstalled();
                 Close();
                 return;
@@ -105,6 +138,25 @@ public partial class SetupWindow : Wpf.Ui.Controls.FluentWindow, INotifyProperty
         }
     }
 
+    private Task<bool> AskConfirmationAsync()
+    {
+        _confirmTcs = new TaskCompletionSource<bool>();
+        ShowConfirmButtons = true;
+        return _confirmTcs.Task;
+    }
+
+    private void OnConfirmUpdateClick(object sender, RoutedEventArgs e)
+    {
+        ShowConfirmButtons = false;
+        _confirmTcs?.TrySetResult(true);
+    }
+
+    private void OnCancelUpdateClick(object sender, RoutedEventArgs e)
+    {
+        ShowConfirmButtons = false;
+        _confirmTcs?.TrySetResult(false);
+    }
+
     private static async Task ExtractEmbeddedExeAsync()
     {
         using var resourceStream = Assembly.GetExecutingAssembly().GetManifestResourceStream(EmbeddedExeResourceName)
@@ -126,6 +178,26 @@ public partial class SetupWindow : Wpf.Ui.Controls.FluentWindow, INotifyProperty
             {
                 await Task.Delay(500);
             }
+        }
+    }
+
+    private static void WriteVersionMarker(Version? version)
+    {
+        try { File.WriteAllText(VersionMarkerPath, version?.ToString() ?? ""); }
+        catch { /* best-effort - worst case the next run treats this as an unknown/older version */ }
+    }
+
+    private static Version? ReadVersionMarker()
+    {
+        try
+        {
+            return File.Exists(VersionMarkerPath) && Version.TryParse(File.ReadAllText(VersionMarkerPath).Trim(), out var v)
+                ? v
+                : null;
+        }
+        catch
+        {
+            return null;
         }
     }
 
@@ -154,19 +226,6 @@ public partial class SetupWindow : Wpf.Ui.Controls.FluentWindow, INotifyProperty
             {
                 // Best-effort - if it's already gone or inaccessible there's nothing more to do.
             }
-        }
-    }
-
-    private static Version? TryGetFileVersion(string path)
-    {
-        try
-        {
-            var info = FileVersionInfo.GetVersionInfo(path);
-            return info.FileVersion is { Length: > 0 } s && Version.TryParse(s, out var v) ? v : null;
-        }
-        catch
-        {
-            return null;
         }
     }
 
