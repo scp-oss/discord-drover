@@ -20,6 +20,7 @@ public partial class TrayPopup : Wpf.Ui.Controls.FluentWindow
         _viewModel.EditProfileRequested += OnEditProfileRequested;
         _viewModel.AddProfilesRequested += OnAddProfilesRequested;
         _viewModel.RestartPromptRequested += OnRestartPromptRequested;
+        _viewModel.TgQrRequested += link => new TgQrDialog(link) { Owner = this }.ShowDialog();
     }
 
     /// <summary>Shows the popup anchored near the system tray, or hides it if it's already open.</summary>

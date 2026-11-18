@@ -75,3 +75,32 @@ hasn't been built or run yet - the Delphi side (`drover.ini` format, the Discord
 was cross-checked directly against this repo's `Options.pas` and `installer/Main.pas`, but give the first
 build a careful look, especially around the exact `Wpf.Ui`/`H.NotifyIcon` API surface for whatever
 versions NuGet resolves.
+
+## Auto-failover restarts Discord (0.2.15)
+
+With "Автопереключение" on, when the active config fails two checks in a row DroverSwitch now picks the
+**fastest** reachable config (lowest measured latency) and, if Discord is running, **restarts Discord
+right away** - drover only reads `drover.ini` when Discord starts, so without the restart the switch did
+nothing until the user restarted Discord by hand.
+
+## Telegram через WebSocket (0.2.15)
+
+A toggle at the top of the popup runs a bundled [Flowseal/tg-ws-proxy](https://github.com/Flowseal/tg-ws-proxy)
+(MIT) - a local MTProto proxy that carries Telegram's traffic over WebSocket, for networks where Telegram's
+own connections are blocked. The CI workflow builds the upstream CLI from a pinned commit (`TGWS_SHA`) into
+one `tg-ws-proxy.exe` and embeds it; DroverSwitch extracts it to `%APPDATA%\DroverSwitch\tg-ws-proxy\`,
+runs it hidden on port 1443 (all interfaces), restarts it if it dies and stops it on exit.
+
+When it's on, two buttons appear at the top:
+
+- **QR для телефона** - QR with `tg://proxy?server=<this PC's LAN IP>&port=1443&secret=dd…` for a phone on
+  the same Wi-Fi (Windows asks once to allow tg-ws-proxy through the firewall - allow private networks).
+- **Добавить в Telegram** - opens the same link for `127.0.0.1`, Telegram Desktop offers to add the proxy.
+
+The secret is generated once and kept in `settings.json`, so links already added on phones keep working.
+
+## Updates close the running app automatically (0.2.15)
+
+`DroverSwitchSetup.exe` no longer asks "закрыть и обновить?" - it always closes the running DroverSwitch
+(matched by name and by the installed exe path) and its `tg-ws-proxy.exe`, waits until the files are free,
+installs and relaunches.

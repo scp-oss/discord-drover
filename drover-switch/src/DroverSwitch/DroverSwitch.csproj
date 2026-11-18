@@ -14,7 +14,7 @@
     <!-- Bump this alongside the GitHub release tag (drover-switch-vX.Y.Z) - keep them in sync so
          the exe's own file properties (right-click - Properties - Details) always match the
          release it came from. -->
-    <Version>0.2.14</Version>
+    <Version>0.2.15</Version>
   </PropertyGroup>
 
   <ItemGroup>
@@ -22,6 +22,8 @@
     <PackageReference Include="WPF-UI" Version="3.0.5" />
     <!-- Native WPF tray icon with a custom popup instead of a WinForms NotifyIcon. -->
     <PackageReference Include="H.NotifyIcon.Wpf" Version="2.4.1" />
+    <!-- QR code for the Telegram WS proxy link (phone on the same Wi-Fi). -->
+    <PackageReference Include="QRCoder" Version="1.6.0" />
   </ItemGroup>
 
   <ItemGroup>
@@ -31,6 +33,9 @@
          install just silently does nothing until the resource is actually present. -->
     <EmbeddedResource Include="Resources\version.dll" Condition="Exists('Resources\version.dll')" />
     <EmbeddedResource Include="Resources\drover-packet.bin" Condition="Exists('Resources\drover-packet.bin')" />
+    <!-- Flowseal/tg-ws-proxy CLI built into one exe by the CI workflow (pinned upstream commit) -
+         see Services/TgWsService.cs. Without it the Telegram toggle just reports it's missing. -->
+    <EmbeddedResource Include="Resources\tg-ws-proxy.exe" Condition="Exists('Resources\tg-ws-proxy.exe')" />
   </ItemGroup>
 
 </Project>

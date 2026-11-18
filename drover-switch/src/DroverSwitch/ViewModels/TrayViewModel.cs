@@ -40,6 +40,8 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
     public event Action<ProxyProfile?>? EditProfileRequested;
     public event Action? AddProfilesRequested;
     public event Action? RestartPromptRequested;
+    /// <summary>TrayPopup shows the QR dialog for this LAN tg://proxy link.</summary>
+    public event Action<string>? TgQrRequested;
 
     public RelayCommand ActivateProfileCommand { get; }
     public RelayCommand AddProfileCommand { get; }
@@ -50,6 +52,8 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
     public RelayCommand UninstallCommand { get; }
     public RelayCommand ApplyUpdateCommand { get; }
     public RelayCommand ExitCommand { get; }
+    public RelayCommand ShowTgQrCommand { get; }
+    public RelayCommand AddToTelegramCommand { get; }
 
     public TrayViewModel()
     {
@@ -74,6 +78,13 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
         UninstallCommand = new RelayCommand(_ => UninstallEverything());
         ApplyUpdateCommand = new RelayCommand(_ => ApplyUpdate());
         ExitCommand = new RelayCommand(_ => Application.Current.Shutdown());
+        ShowTgQrCommand = new RelayCommand(_ => ShowTgQr());
+        AddToTelegramCommand = new RelayCommand(_ => AddToTelegram());
+        TgWsService.StateChanged += () => Application.Current?.Dispatcher.BeginInvoke(() =>
+        {
+            OnPropertyChanged(nameof(TgWsStatusText));
+            OnPropertyChanged(nameof(TgWsRunning));
+        });
 
         _timer = new DispatcherTimer
         {
@@ -103,6 +114,72 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
 
         _updateCheckTimer.Start();
         _ = CheckForUpdatesAsync(isStartupCheck: true);
+
+        if (_settings.TgWsEnabled)
+            StartTgWs();
+    }
+
+    // ---------------------------------------------------------------- Telegram WS proxy
+
+    /// <summary>Toggle: runs the bundled tg-ws-proxy; when on, the popup shows "QR для телефона" and
+    /// "Добавить в Telegram" at the top.</summary>
+    public bool TgWsEnabled
+    {
+        get => _settings.TgWsEnabled;
+        set
+        {
+            if (_settings.TgWsEnabled == value)
+                return;
+            _settings.TgWsEnabled = value;
+            Save();
+            if (value) StartTgWs(); else TgWsService.Stop();
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(TgWsStatusText));
+        }
+    }
+
+    public bool TgWsRunning => TgWsService.IsRunning;
+
+    public string TgWsStatusText =>
+        !TgWsEnabled ? "Выключено"
+        : TgWsService.LastError is { } err ? $"Ошибка: {err}"
+        : TgWsService.IsRunning ? $"Работает · порт {_settings.TgWsPort}" + (TgWsService.LanAddress() is { } ip ? $" · в сети {ip}" : "")
+        : "Запускается…";
+
+    private void StartTgWs()
+    {
+        if (string.IsNullOrEmpty(_settings.TgWsSecret))
+        {
+            _settings.TgWsSecret = TgWsService.NewSecret();
+            Save();
+        }
+        TgWsService.Start(_settings.TgWsPort, _settings.TgWsSecret!);
+    }
+
+    private void ShowTgQr()
+    {
+        var link = TgWsService.LanLink;
+        if (link is null)
+        {
+            MessageBox.Show("Не найдено подключение к локальной сети (Wi-Fi/Ethernet) — телефону не к чему подключаться.",
+                "Telegram", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+        TgQrRequested?.Invoke(link);
+    }
+
+    /// <summary>tg://proxy on this PC: Telegram Desktop opens its "add proxy" dialog for 127.0.0.1.</summary>
+    private void AddToTelegram()
+    {
+        try
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(TgWsService.LocalLink) { UseShellExecute = true });
+        }
+        catch
+        {
+            MessageBox.Show("Не удалось открыть ссылку tg://proxy — установлен ли Telegram Desktop?\n\n" + TgWsService.LocalLink,
+                "Telegram", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
     }
 
     public bool AutoModeEnabled
@@ -634,7 +711,10 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
         }
     }
 
-    private void ActivateInternal(ProfileItemViewModel item, bool notifyAuto)
+    /// <param name="autoRestartDiscord">Automatic failover while Discord is running: drover only reads
+    /// drover.ini when Discord starts, so without a restart the switch would do nothing until the user
+    /// restarts Discord by hand - meanwhile Discord stays unreachable. Restart it right away instead.</param>
+    private void ActivateInternal(ProfileItemViewModel item, bool notifyAuto, bool autoRestartDiscord = false)
     {
         var allDirs = DiscordLocator.FindDiscordDirs();
         if (allDirs.Count == 0)
@@ -678,7 +758,12 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
         foreach (var p in Profiles)
             p.IsActive = p.Name.Equals(item.Name, StringComparison.OrdinalIgnoreCase);
 
-        if (notifyAuto)
+        if (notifyAuto && autoRestartDiscord && !discordClosed)
+        {
+            RestartDiscord(skipConfirm: true);
+            NotificationRequested?.Invoke($"Discord был недоступен — автоматически переключено на «{item.Name}», Discord перезапущен.");
+        }
+        else if (notifyAuto)
         {
             // A background action popping up a blocking dialog would be jarring - the toast is
             // enough, and the Discord status card's own Restart button is still right there.
@@ -758,15 +843,18 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
             if (_consecutiveActiveFailures < 2)
                 return;
 
+            // Fastest reachable profile wins (lowest measured latency), not just the next in the list.
             var candidate = Enumerable.Range(0, snapshot.Count)
                 .Where(i => !snapshot[i].Name.Equals(active.Name, StringComparison.OrdinalIgnoreCase) && results[i])
+                .OrderBy(i => checks[i].LatencyMs ?? int.MaxValue)
                 .Select(i => snapshot[i])
                 .FirstOrDefault();
 
             if (candidate is not null)
             {
                 _consecutiveActiveFailures = 0;
-                ActivateInternal(candidate, notifyAuto: true);
+                var discordWasRunning = DiscordLocator.IsAnyDiscordRunning();
+                ActivateInternal(candidate, notifyAuto: true, autoRestartDiscord: discordWasRunning);
             }
             else if (DateTime.UtcNow - _lastAllOfflineNotification > TimeSpan.FromMinutes(5))
             {
@@ -822,6 +910,7 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
 
     public void Dispose()
     {
+        TgWsService.Stop();
         _timer.Stop();
         _updateCheckTimer.Stop();
     }

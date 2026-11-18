@@ -95,24 +95,11 @@ public partial class SetupWindow : Wpf.Ui.Controls.FluentWindow, INotifyProperty
                 // confirmed inside the app (the update banner's own restart prompt) - asking again
                 // here would just be a dialog nobody is around to click, since DroverSwitch is about
                 // to close itself regardless.
-                if (IsAlreadyRunning() && !IsAutoUpdateLaunch())
-                {
-                    IsBusy = false;
-                    StatusText = $"Discord Drover сейчас запущен. Доступно обновление до {bundledVersion}. " +
-                                 "Закрыть и обновить?";
-                    var confirmed = await AskConfirmationAsync();
-                    if (!confirmed)
-                    {
-                        StatusText = "Обновление отменено.";
-                        await Task.Delay(1500);
-                        Close();
-                        return;
-                    }
-                    IsBusy = true;
-                }
-
+                // A running DroverSwitch (and the tg-ws-proxy.exe it started) keeps DroverSwitch.exe
+                // locked - always close it right here, without asking: the update can't be applied
+                // otherwise, and it is relaunched automatically a moment later anyway.
                 StatusText = $"Обновляю Discord Drover до {bundledVersion}...";
-                TerminateRunningInstance();
+                await TerminateRunningInstanceAsync();
                 await ExtractEmbeddedExeAsync();
                 WriteVersionMarker(bundledVersion);
                 LaunchInstalled();
@@ -169,7 +156,7 @@ public partial class SetupWindow : Wpf.Ui.Controls.FluentWindow, INotifyProperty
 
         // A just-killed process can hold the file handle open for a brief moment after Kill()
         // returns - retry instead of failing the whole install over a transient race.
-        const int maxAttempts = 6;
+        const int maxAttempts = 20;
         for (var attempt = 1; attempt <= maxAttempts; attempt++)
         {
             try
@@ -221,13 +208,34 @@ public partial class SetupWindow : Wpf.Ui.Controls.FluentWindow, INotifyProperty
     private static bool IsAutoUpdateLaunch() =>
         Environment.GetCommandLineArgs().Any(a => a.Equals("--auto-update", StringComparison.OrdinalIgnoreCase));
 
-    private static void TerminateRunningInstance()
+    /// <summary>Closes every running DroverSwitch - matched by process name AND by the installed exe
+    /// path (a renamed or older copy started from the install folder still locks it) - plus any
+    /// helper process started from the install folder (tg-ws-proxy.exe), then waits until the files
+    /// are really free.</summary>
+    private static async Task TerminateRunningInstanceAsync()
     {
-        foreach (var proc in Process.GetProcessesByName("DroverSwitch"))
+        static bool FromInstallDir(Process p)
         {
             try
             {
-                proc.Kill();
+                var path = p.MainModule?.FileName;
+                return path is not null && path.StartsWith(InstallDir, StringComparison.OrdinalIgnoreCase);
+            }
+            catch { return false; }
+        }
+
+        var targets = Process.GetProcessesByName("DroverSwitch")
+            .Concat(Process.GetProcessesByName("tg-ws-proxy"))
+            .Concat(Process.GetProcesses().Where(FromInstallDir))
+            .GroupBy(p => p.Id).Select(g => g.First())
+            .Where(p => p.Id != Environment.ProcessId)
+            .ToList();
+
+        foreach (var proc in targets)
+        {
+            try
+            {
+                proc.Kill(entireProcessTree: true);
                 proc.WaitForExit(5000);
             }
             catch
@@ -235,6 +243,11 @@ public partial class SetupWindow : Wpf.Ui.Controls.FluentWindow, INotifyProperty
                 // Best-effort - if it's already gone or inaccessible there's nothing more to do.
             }
         }
+
+        // The single-instance mutex disappears with the process; give Windows a moment to release
+        // the exe's file handle before extraction overwrites it (ExtractEmbeddedExeAsync retries too).
+        for (var i = 0; i < 20 && IsAlreadyRunning(); i++)
+            await Task.Delay(250);
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
