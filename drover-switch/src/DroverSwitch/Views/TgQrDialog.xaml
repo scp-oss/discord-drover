@@ -29,6 +29,11 @@
             <TextBlock x:Name="HintText" FontSize="12" TextWrapping="Wrap"
                        Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,14"
                        Text="Отсканируйте QR камерой телефона, который подключён к той же Wi-Fi сети, что и этот компьютер, — Telegram предложит добавить прокси." />
+            <StackPanel x:Name="IpPanel" Visibility="Collapsed" Margin="0,0,0,12">
+                <TextBlock Text="Сеть, в которой телефон:" FontSize="12" Margin="0,0,0,4"
+                           Foreground="{StaticResource TextSecondaryBrush}" />
+                <ComboBox x:Name="IpBox" DisplayMemberPath="Display" SelectionChanged="OnIpChanged" FontSize="12" />
+            </StackPanel>
             <Border Background="White" CornerRadius="10" Padding="10" HorizontalAlignment="Center">
                 <Image x:Name="QrImage" Width="240" Height="240" RenderOptions.BitmapScalingMode="NearestNeighbor" />
             </Border>

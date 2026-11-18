@@ -22,6 +22,9 @@ public class AppSettings
     /// added to Telegram on the PC and phones.</summary>
     public string? TgWsSecret { get; set; }
 
+    /// <summary>LAN address picked in the phone QR dialog (PC with several networks); null = automatic.</summary>
+    public string? TgWsLanIp { get; set; }
+
     public static AppSettings CreateDefault() => new()
     {
         Profiles = new List<ProxyProfile>

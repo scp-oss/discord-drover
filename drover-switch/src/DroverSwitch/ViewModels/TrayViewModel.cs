@@ -41,7 +41,7 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
     public event Action? AddProfilesRequested;
     public event Action? RestartPromptRequested;
     /// <summary>TrayPopup shows the QR dialog for this LAN tg://proxy link.</summary>
-    public event Action<string>? TgQrRequested;
+    public event Action<IReadOnlyList<TgWsService.LanCandidate>, string>? TgQrRequested;
 
     public RelayCommand ActivateProfileCommand { get; }
     public RelayCommand AddProfileCommand { get; }
@@ -85,6 +85,9 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
             OnPropertyChanged(nameof(TgWsStatusText));
             OnPropertyChanged(nameof(TgWsRunning));
         });
+        // Wi-Fi switched, cable plugged, DHCP renewed - the "в сети <ip>" part of the status follows
+        System.Net.NetworkInformation.NetworkChange.NetworkAddressChanged += (_, _) =>
+            Application.Current?.Dispatcher.BeginInvoke(() => OnPropertyChanged(nameof(TgWsStatusText)));
 
         _timer = new DispatcherTimer
         {
@@ -148,6 +151,7 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
 
     private void StartTgWs()
     {
+        TgWsService.PreferredLanIp = _settings.TgWsLanIp;
         if (string.IsNullOrEmpty(_settings.TgWsSecret))
         {
             _settings.TgWsSecret = TgWsService.NewSecret();
@@ -158,14 +162,24 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
 
     private void ShowTgQr()
     {
-        var link = TgWsService.LanLink;
-        if (link is null)
+        var candidates = TgWsService.LanCandidates();
+        var ip = TgWsService.LanAddress();
+        if (candidates.Count == 0 || ip is null)
         {
             MessageBox.Show("Не найдено подключение к локальной сети (Wi-Fi/Ethernet) — телефону не к чему подключаться.",
                 "Telegram", MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
-        TgQrRequested?.Invoke(link);
+        TgQrRequested?.Invoke(candidates, ip);
+    }
+
+    /// <summary>The user picked another network in the QR dialog: remember it for the QR and status line.</summary>
+    public void SetTgLanIp(string ip)
+    {
+        TgWsService.PreferredLanIp = ip;
+        _settings.TgWsLanIp = ip;
+        Save();
+        OnPropertyChanged(nameof(TgWsStatusText));
     }
 
     /// <summary>tg://proxy on this PC: Telegram Desktop opens its "add proxy" dialog for 127.0.0.1.</summary>

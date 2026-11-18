@@ -1,5 +1,6 @@
 using System.Windows;
 using DroverSwitch.Models;
+using DroverSwitch.Services;
 using DroverSwitch.ViewModels;
 using Wpf.Ui.Appearance;
 
@@ -20,7 +21,8 @@ public partial class TrayPopup : Wpf.Ui.Controls.FluentWindow
         _viewModel.EditProfileRequested += OnEditProfileRequested;
         _viewModel.AddProfilesRequested += OnAddProfilesRequested;
         _viewModel.RestartPromptRequested += OnRestartPromptRequested;
-        _viewModel.TgQrRequested += link => new TgQrDialog(link) { Owner = this }.ShowDialog();
+        _viewModel.TgQrRequested += (candidates, selected) =>
+            new TgQrDialog(candidates, selected, TgWsService.LinkFor, _viewModel.SetTgLanIp) { Owner = this }.ShowDialog();
     }
 
     /// <summary>Shows the popup anchored near the system tray, or hides it if it's already open.</summary>
