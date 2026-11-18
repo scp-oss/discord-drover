@@ -29,6 +29,14 @@ public partial class App : Application
     {
         base.OnStartup(e);
 
+        // Elevated helper run (UAC prompt shows "DroverSwitch"): only write the firewall rule and exit -
+        // no single-instance check, no tray.
+        if (e.Args.Length > 1 && e.Args[0] == TgWsService.FirewallArg)
+        {
+            Shutdown(TgWsService.ApplyFirewallRule(e.Args[1]) ? 0 : 1);
+            return;
+        }
+
         // No "Global\" prefix on purpose: this should block a second copy for the same Windows
         // user session (double-click the exe again, or autostart + a manual launch), not stop a
         // different user on a shared machine from running their own.

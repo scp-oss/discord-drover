@@ -94,8 +94,18 @@ runs it hidden on port 1443 (all interfaces), restarts it if it dies and stops i
 When it's on, two buttons appear at the top:
 
 - **QR для телефона** - QR with `tg://proxy?server=<this PC's LAN IP>&port=1443&secret=dd…` for a phone on
-  the same Wi-Fi (Windows asks once to allow tg-ws-proxy through the firewall - allow private networks).
-- **Добавить в Telegram** - opens the same link for `127.0.0.1`, Telegram Desktop offers to add the proxy.
+  the same Wi-Fi. The LAN address is picked automatically (real Wi-Fi/Ethernet adapters before Hyper-V/WSL,
+  VirtualBox, VMware, Docker and VPN ones; then the adapter with a gateway / the internet route); with several
+  networks the dialog has a picker, and the choice is remembered (0.2.16).
+- **Добавить в Telegram** - opens the same link (same LAN address, `127.0.0.1` only without any LAN) in
+  Telegram Desktop, which offers to add the proxy (0.2.17).
+
+Windows Firewall (0.2.17): before the proxy first listens (toggle turned on; at app start only once), DroverSwitch checks for its inbound allow rule
+`DroverSwitch Telegram` (program `tg-ws-proxy.exe`, TCP, all profiles) and, if it's missing, adds it after one
+UAC prompt (DroverSwitch.exe re-runs itself elevated with `--tgws-firewall <path>`) - before the proxy first listens, so Windows' own "allow access" prompt doesn't appear. Rules
+Windows created for the exe are removed first (a dismissed prompt leaves a Block rule, which beats allow).
+If the rule is still missing, the QR dialog shows a "Разрешить в брандмауэре" button. Access from the LAN is
+protected by the proxy secret.
 
 The secret is generated once and kept in `settings.json`, so links already added on phones keep working.
 

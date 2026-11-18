@@ -25,6 +25,9 @@ public class AppSettings
     /// <summary>LAN address picked in the phone QR dialog (PC with several networks); null = automatic.</summary>
     public string? TgWsLanIp { get; set; }
 
+    /// <summary>The firewall UAC prompt was already offered at app start (not repeated on every login).</summary>
+    public bool TgWsFirewallAsked { get; set; }
+
     public static AppSettings CreateDefault() => new()
     {
         Profiles = new List<ProxyProfile>

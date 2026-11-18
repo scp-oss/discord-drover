@@ -20,7 +20,8 @@ namespace DroverSwitch.Services;
 /// runs it hidden, restarts it if it dies, and stops it on exit.
 ///
 /// It listens on all interfaces, so a phone on the same Wi-Fi can use this PC as its proxy
-/// (QR with the LAN address); Telegram Desktop on this PC uses 127.0.0.1.
+/// (QR with the LAN address); Telegram Desktop on this PC gets the same LAN address (127.0.0.1 only
+/// when the PC has no LAN), so the PC and the phones show one and the same proxy.
 /// </summary>
 public static class TgWsService
 {
@@ -53,6 +54,10 @@ public static class TgWsService
         $"tg://proxy?server={host}&port={port}&secret=dd{secret}";
 
     public static string LocalLink => Link("127.0.0.1", _port, _secret);
+
+    /// <summary>Link for Telegram Desktop on this PC: the LAN address (same as the phone QR), or
+    /// 127.0.0.1 when there's no LAN at all.</summary>
+    public static string DesktopLink => LanLink ?? LocalLink;
 
     public static string? LanLink => LanAddress() is { } ip ? Link(ip, _port, _secret) : null;
 
@@ -245,6 +250,68 @@ public static class TgWsService
                 return;
         }
         File.WriteAllBytes(ExePath, bytes);
+    }
+
+    // ------------------------------------------------------------ Windows Firewall
+
+    private const string FirewallRuleName = "DroverSwitch Telegram";
+
+    /// <summary>Whether our inbound allow rule for tg-ws-proxy.exe exists (reading rules needs no admin).</summary>
+    public static bool FirewallRuleExists() => Netsh($"advfirewall firewall show rule name=\"{FirewallRuleName}\"");
+
+    /// <summary>Command-line switch for the elevated run of DroverSwitch.exe that writes the rule.</summary>
+    public const string FirewallArg = "--tgws-firewall";
+
+    /// <summary>Adds an inbound allow rule for tg-ws-proxy.exe so phones on the Wi-Fi can connect: runs this
+    /// same DroverSwitch.exe elevated with <see cref="FirewallArg"/> (one UAC prompt, which then names
+    /// DroverSwitch rather than "Обработчик команд Windows"). Returns true when the rule is in place.</summary>
+    public static bool AllowInFirewall()
+    {
+        try
+        {
+            var self = Environment.ProcessPath;
+            if (self is null)
+                return false;
+            var psi = new ProcessStartInfo(self, $"{FirewallArg} \"{ExePath}\"") { UseShellExecute = true, Verb = "runas" };
+            using var p = Process.Start(psi);
+            p?.WaitForExit(30000);
+        }
+        catch { /* UAC declined */ }
+        return FirewallRuleExists();
+    }
+
+    /// <summary>The elevated part: removes every rule Windows made for tg-ws-proxy.exe (a dismissed
+    /// "allow access" prompt leaves a Block rule, and block rules win over allow) and our old rule, then
+    /// adds ours - inbound, TCP, all profiles (Windows often files home Wi-Fi as "public"). Access from
+    /// the LAN stays protected by the proxy secret.</summary>
+    /// <param name="exePath">tg-ws-proxy.exe of the user who asked - passed on the command line because,
+    /// when a standard user types an admin's password into UAC, this elevated run is another account
+    /// with another %APPDATA%.</param>
+    public static bool ApplyFirewallRule(string exePath)
+    {
+        Netsh($"advfirewall firewall delete rule name=all program=\"{exePath}\"");
+        Netsh($"advfirewall firewall delete rule name=\"{FirewallRuleName}\"");
+        return Netsh($"advfirewall firewall add rule name=\"{FirewallRuleName}\" dir=in action=allow " +
+                     $"program=\"{exePath}\" protocol=TCP profile=any enable=yes");
+    }
+
+    private static bool Netsh(string args)
+    {
+        try
+        {
+            var psi = new ProcessStartInfo("netsh", args)
+            {
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+            };
+            using var p = Process.Start(psi)!;
+            p.StandardOutput.ReadToEnd();
+            p.WaitForExit(15000);
+            return p.ExitCode == 0;
+        }
+        catch { return false; }
     }
 
     /// <summary>A previous DroverSwitch that crashed or was killed by the updater can leave its

@@ -35,6 +35,23 @@ public partial class TgQrDialog : Wpf.Ui.Controls.FluentWindow
             IpBox.SelectedItem = candidates.FirstOrDefault(c => c.Address == selected) ?? candidates[0];
         }
         Render(selected);
+        Loaded += async (_, _) =>
+        {
+            if (!await System.Threading.Tasks.Task.Run(TgWsService.FirewallRuleExists))
+                FirewallPanel.Visibility = Visibility.Visible;
+        };
+    }
+
+    private async void OnFirewallClick(object sender, RoutedEventArgs e)
+    {
+        FirewallButton.IsEnabled = false;
+        if (await System.Threading.Tasks.Task.Run(TgWsService.AllowInFirewall))
+        {
+            FirewallPanel.Visibility = Visibility.Collapsed;
+            return;
+        }
+        FirewallText.Text = "Правило не добавлено (нужно подтвердить запрос администратора). Попробуйте ещё раз.";
+        FirewallButton.IsEnabled = true;
     }
 
     private void OnIpChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)

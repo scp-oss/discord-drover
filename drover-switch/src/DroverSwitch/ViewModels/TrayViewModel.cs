@@ -119,7 +119,7 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
         _ = CheckForUpdatesAsync(isStartupCheck: true);
 
         if (_settings.TgWsEnabled)
-            StartTgWs();
+            _ = EnableTgWsAsync(userAction: false);
     }
 
     // ---------------------------------------------------------------- Telegram WS proxy
@@ -135,7 +135,7 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
                 return;
             _settings.TgWsEnabled = value;
             Save();
-            if (value) StartTgWs(); else TgWsService.Stop();
+            if (value) _ = EnableTgWsAsync(userAction: true); else TgWsService.Stop();
             OnPropertyChanged();
             OnPropertyChanged(nameof(TgWsStatusText));
         }
@@ -148,6 +148,23 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
         : TgWsService.LastError is { } err ? $"Ошибка: {err}"
         : TgWsService.IsRunning ? $"Работает · порт {_settings.TgWsPort}" + (TgWsService.LanAddress() is { } ip ? $" · в сети {ip}" : "")
         : "Запускается…";
+
+    /// <summary>Before the proxy first listens, make sure phones can get through Windows Firewall: if our
+    /// rule is missing, one UAC prompt adds it (this also keeps Windows' own "allow access" prompt away).
+    /// Asked every time the user turns the toggle on; at app start only once (settings
+    /// TgWsFirewallAsked), so declining doesn't bring UAC back on every login - the QR dialog keeps
+    /// a "Разрешить в брандмауэре" button for later.</summary>
+    private async Task EnableTgWsAsync(bool userAction)
+    {
+        if ((userAction || !_settings.TgWsFirewallAsked) && !await Task.Run(TgWsService.FirewallRuleExists))
+        {
+            _settings.TgWsFirewallAsked = true;
+            Save();
+            await Task.Run(TgWsService.AllowInFirewall);
+        }
+        if (_settings.TgWsEnabled)
+            StartTgWs();
+    }
 
     private void StartTgWs()
     {
@@ -182,16 +199,17 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
         OnPropertyChanged(nameof(TgWsStatusText));
     }
 
-    /// <summary>tg://proxy on this PC: Telegram Desktop opens its "add proxy" dialog for 127.0.0.1.</summary>
+    /// <summary>tg://proxy for Telegram Desktop on this PC - with the PC's LAN address (same proxy as on the
+    /// phones), 127.0.0.1 only when there's no LAN.</summary>
     private void AddToTelegram()
     {
         try
         {
-            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(TgWsService.LocalLink) { UseShellExecute = true });
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(TgWsService.DesktopLink) { UseShellExecute = true });
         }
         catch
         {
-            MessageBox.Show("Не удалось открыть ссылку tg://proxy — установлен ли Telegram Desktop?\n\n" + TgWsService.LocalLink,
+            MessageBox.Show("Не удалось открыть ссылку tg://proxy — установлен ли Telegram Desktop?\n\n" + TgWsService.DesktopLink,
                 "Telegram", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
     }
