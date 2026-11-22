@@ -25,6 +25,20 @@ namespace DroverSwitch.Services;
 /// </summary>
 public static class TgWsService
 {
+    /// <summary>Our own Cloudflare Worker (drover-switch/cf-worker): the public Cloudflare domains built into
+    /// tg-ws-proxy are blocked by SNI by Russian ISPs since 2026-11-20, a workers.dev Worker still passes.
+    /// It only relays to Telegram's IP ranges.</summary>
+    public const string DefaultWorker = "drover-tg.mixaa1998.workers.dev";
+
+    private static string[] _workers = Array.Empty<string>();
+
+    /// <summary>"https://a.workers.dev/, b.workers.dev" -> ["a.workers.dev", "b.workers.dev"].</summary>
+    public static string[] ParseWorkers(string? text) =>
+        (text ?? "").Split(new[] { ',', ';', ' ', '\n', '\r', '\t' }, StringSplitOptions.RemoveEmptyEntries)
+            .Select(w => System.Text.RegularExpressions.Regex.Replace(w.Trim(), @"^[a-zA-Z]+://", "").Split('/')[0].Trim().ToLowerInvariant())
+            .Where(w => System.Text.RegularExpressions.Regex.IsMatch(w, @"^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$"))
+            .Distinct().ToArray();
+
     private const string ResourceName = "DroverSwitch.Resources.tg-ws-proxy.exe";
     public const int DefaultPort = 1443;
 
@@ -152,8 +166,9 @@ public static class TgWsService
         return b[0] == 10 || (b[0] == 172 && b[1] >= 16 && b[1] <= 31) || (b[0] == 192 && b[1] == 168);
     }
 
-    public static void Start(int port, string secret)
+    public static void Start(int port, string secret, string[]? workers = null)
     {
+        _workers = workers ?? Array.Empty<string>();
         // (re)start: drop our own previous process first (port/secret may have changed)
         var old = _proc;
         _proc = null;
@@ -203,7 +218,8 @@ public static class TgWsService
     {
         var psi = new ProcessStartInfo(ExePath)
         {
-            Arguments = $"--host 0.0.0.0 --port {_port} --secret {_secret} --log-file \"{LogPath}\" --log-max-mb 2",
+            Arguments = $"--host 0.0.0.0 --port {_port} --secret {_secret} --log-file \"{LogPath}\" --log-max-mb 2"
+                        + string.Concat(_workers.Select(w => $" --cfproxy-worker-domain {w}")),
             UseShellExecute = false,
             CreateNoWindow = true,
             WindowStyle = ProcessWindowStyle.Hidden,

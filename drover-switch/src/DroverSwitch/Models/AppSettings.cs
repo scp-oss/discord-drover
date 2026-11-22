@@ -28,6 +28,10 @@ public class AppSettings
     /// <summary>The firewall UAC prompt was already offered at app start (not repeated on every login).</summary>
     public bool TgWsFirewallAsked { get; set; }
 
+    /// <summary>Cloudflare Worker domain(s) for Telegram, comma separated; null = the built-in default
+    /// (<see cref="Services.TgWsService.DefaultWorker"/>), empty string = no worker.</summary>
+    public string? TgWsWorker { get; set; }
+
     public static AppSettings CreateDefault() => new()
     {
         Profiles = new List<ProxyProfile>

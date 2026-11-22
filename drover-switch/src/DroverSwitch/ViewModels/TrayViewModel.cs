@@ -174,7 +174,29 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
             _settings.TgWsSecret = TgWsService.NewSecret();
             Save();
         }
-        TgWsService.Start(_settings.TgWsPort, _settings.TgWsSecret!);
+        TgWsService.Start(_settings.TgWsPort, _settings.TgWsSecret!, TgWsService.ParseWorkers(TgWsWorker));
+    }
+
+    /// <summary>Cloudflare Worker field: shows the built-in default until the user types their own;
+    /// clearing the field returns to the default. Applying restarts tg-ws-proxy.</summary>
+    public string TgWsWorker
+    {
+        get => _settings.TgWsWorker ?? TgWsService.DefaultWorker;
+        set
+        {
+            var clean = string.Join(", ", TgWsService.ParseWorkers(value));
+            string? stored = clean.Length == 0 || clean == TgWsService.DefaultWorker ? null : clean;
+            if (stored == _settings.TgWsWorker)
+            {
+                OnPropertyChanged(nameof(TgWsWorker));
+                return;
+            }
+            _settings.TgWsWorker = stored;
+            Save();
+            OnPropertyChanged(nameof(TgWsWorker));
+            if (_settings.TgWsEnabled)
+                StartTgWs();
+        }
     }
 
     private void ShowTgQr()
