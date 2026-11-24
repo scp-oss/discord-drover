@@ -38,6 +38,47 @@
             <GradientStop Color="#5B8CFF" Offset="0" />
             <GradientStop Color="#2954C8" Offset="1" />
         </LinearGradientBrush>
+
+        <!-- ICONS: SVG path data, 24x24 viewBox, drawn as strokes (stroke-width 2, round caps/joins). -->
+        <Geometry x:Key="IcoClose">M6,6 L18,18 M18,6 L6,18</Geometry>
+        <Geometry x:Key="IcoPlus">M12,5 L12,19 M5,12 L19,12</Geometry>
+        <Geometry x:Key="IcoRefresh">M20,12 A8,8 0 1 1 17.66,6.34 M20,4 L20,9 L15,9</Geometry>
+        <Geometry x:Key="IcoTrash">M4,7 L20,7 M9,7 L9,4 L15,4 L15,7 M6,7 L7,20 L17,20 L18,7 M10,11 L10,16 M14,11 L14,16</Geometry>
+        <Geometry x:Key="IcoQr">M4,4 L10,4 L10,10 L4,10 Z M14,4 L20,4 L20,10 L14,10 Z M4,14 L10,14 L10,20 L4,20 Z M14,14 L16,14 L16,16 L14,16 Z M18,18 L20,18 L20,20 L18,20 Z M18,14 L20,14 M14,19 L15,19</Geometry>
+        <Geometry x:Key="IcoLink">M10,14 L14,10 M8.5,12.5 L6.5,14.5 A3.5,3.5 0 0 0 11.5,19.5 L13.5,17.5 M15.5,11.5 L17.5,9.5 A3.5,3.5 0 0 0 12.5,4.5 L10.5,6.5</Geometry>
+        <Geometry x:Key="IcoPower">M12,3 L12,12 M7,6.3 A8,8 0 1 0 17,6.3</Geometry>
+        <Geometry x:Key="IcoPlay">M8,5 L19,12 L8,19 Z</Geometry>
+        <Geometry x:Key="IcoTelegram">M21,4 L3,11.5 L9.5,13.5 L11.5,20 L14.5,16 L19,19.5 Z M9.5,13.5 L21,4</Geometry>
+        <Geometry x:Key="IcoDiscord">M7,7 Q12,5.5 17,7 Q20,11 20,16 Q18,18 15.5,18.5 L14.5,16.5 Q12,17.2 9.5,16.5 L8.5,18.5 Q6,18 4,16 Q4,11 7,7 Z M9.5,12 L9.5,12.5 M14.5,12 L14.5,12.5</Geometry>
+
+        <Style x:Key="Ico" TargetType="Path">
+            <Setter Property="Stroke" Value="{StaticResource TextPrimaryBrush}" />
+            <Setter Property="StrokeThickness" Value="2" />
+            <Setter Property="StrokeStartLineCap" Value="Round" />
+            <Setter Property="StrokeEndLineCap" Value="Round" />
+            <Setter Property="StrokeLineJoin" Value="Round" />
+        </Style>
+        <!-- square icon-only button for the header / rows -->
+        <Style x:Key="IconBtn" TargetType="ui:Button">
+            <Setter Property="Appearance" Value="Transparent" />
+            <Setter Property="Width" Value="30" />
+            <Setter Property="Height" Value="30" />
+            <Setter Property="MinWidth" Value="0" />
+            <Setter Property="MinHeight" Value="0" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+        </Style>
+        <Style x:Key="BoxBtn" TargetType="ui:Button">
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="MinHeight" Value="0" />
+            <Setter Property="Padding" Value="8,6" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="FontSize" Value="12" />
+        </Style>
     </ui:FluentWindow.Resources>
 
     <Border Background="{StaticResource WindowBg}" BorderBrush="{StaticResource WindowBorder}"
@@ -74,63 +115,23 @@
                     </StackPanel>
                 </StackPanel>
 
-                <ui:ProgressRing Grid.Column="2" Width="16" Height="16" VerticalAlignment="Top"
-                                  Visibility="{Binding IsChecking, Converter={StaticResource BoolToVis}}" />
-            </Grid>
-
-            <!-- TELEGRAM WS: toggle; when on - "QR для телефона" and "Добавить в Telegram" right at the top -->
-            <Border Background="{StaticResource SurfaceBrush}" BorderBrush="{StaticResource SurfaceBorderBrush}"
-                    BorderThickness="1" CornerRadius="10" Padding="12,8" Margin="0,0,0,10">
-                <StackPanel>
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                            <StackPanel Orientation="Horizontal">
-                                <ui:SymbolIcon Symbol="Send24" FontSize="15" Foreground="#2AABEE" Margin="0,0,8,0" VerticalAlignment="Center" />
-                                <TextBlock Text="Telegram через WebSocket" FontSize="13" VerticalAlignment="Center"
-                                           Foreground="{StaticResource TextPrimaryBrush}" />
-                            </StackPanel>
-                            <TextBlock Text="{Binding TgWsStatusText}" FontSize="11" TextWrapping="Wrap" Margin="23,3,0,0"
-                                       Foreground="{StaticResource TextSecondaryBrush}" />
-                        </StackPanel>
-                        <ui:ToggleSwitch Grid.Column="1" IsChecked="{Binding TgWsEnabled}" Margin="10,0,0,0" />
-                    </Grid>
-                    <Grid Margin="0,10,0,0" Visibility="{Binding TgWsEnabled, Converter={StaticResource BoolToVis}}">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="8" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-                        <ui:Button Grid.Column="0" HorizontalAlignment="Stretch" MinHeight="0" Padding="10,8" CornerRadius="8"
-                                   Command="{Binding ShowTgQrCommand}" ToolTip="QR-код для телефона в той же Wi-Fi сети">
-                            <StackPanel Orientation="Horizontal">
-                                <ui:SymbolIcon Symbol="QrCode24" FontSize="15" Margin="0,0,6,0" />
-                                <TextBlock Text="QR для телефона" FontSize="12" VerticalAlignment="Center" />
-                            </StackPanel>
+                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Top" Margin="6,-4,-6,0">
+                    <Grid Width="30" Height="30">
+                        <ui:Button Style="{StaticResource IconBtn}" Command="{Binding RefreshNowCommand}" ToolTip="Проверить прокси"
+                                   Visibility="{Binding IsNotChecking, Converter={StaticResource BoolToVis}}">
+                            <Viewbox Width="16" Height="16"><Canvas Width="24" Height="24"><Path Style="{StaticResource Ico}" Data="{StaticResource IcoRefresh}" /></Canvas></Viewbox>
                         </ui:Button>
-                        <ui:Button Grid.Column="2" HorizontalAlignment="Stretch" MinHeight="0" Padding="10,8" CornerRadius="8"
-                                   Appearance="Primary" Command="{Binding AddToTelegramCommand}"
-                                   ToolTip="Открыть tg://proxy — Telegram Desktop предложит добавить прокси">
-                            <StackPanel Orientation="Horizontal">
-                                <ui:SymbolIcon Symbol="Add24" FontSize="15" Margin="0,0,6,0" />
-                                <TextBlock Text="Добавить в Telegram" FontSize="12" VerticalAlignment="Center" />
-                            </StackPanel>
-                        </ui:Button>
+                        <ui:ProgressRing Width="16" Height="16" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                         Visibility="{Binding IsChecking, Converter={StaticResource BoolToVis}}" />
                     </Grid>
-                    <StackPanel Margin="0,10,0,0" Visibility="{Binding TgWsEnabled, Converter={StaticResource BoolToVis}}">
-                        <TextBlock Text="Cloudflare Worker" FontSize="11" Margin="2,0,0,4"
-                                   Foreground="{StaticResource TextSecondaryBrush}" />
-                        <ui:TextBox FontSize="12" MinHeight="0" Padding="8,6" ClearButtonEnabled="False"
-                                    PlaceholderText="домен.workers.dev (пусто — встроенный)"
-                                    Text="{Binding TgWsWorker, UpdateSourceTrigger=LostFocus}"
-                                    KeyDown="TgWorkerBox_KeyDown"
-                                    ToolTip="Через него идёт Telegram, если прямое подключение заблокировано. Можно указать свой Worker (несколько — через запятую). Очистить поле — вернуть встроенный." />
-                    </StackPanel>
+                    <ui:Button Style="{StaticResource IconBtn}" Command="{Binding AddProfileCommand}" ToolTip="Добавить прокси">
+                        <Viewbox Width="16" Height="16"><Canvas Width="24" Height="24"><Path Style="{StaticResource Ico}" Data="{StaticResource IcoPlus}" /></Canvas></Viewbox>
+                    </ui:Button>
+                    <ui:Button Style="{StaticResource IconBtn}" Command="{Binding ExitCommand}" ToolTip="Выход">
+                        <Viewbox Width="16" Height="16"><Canvas Width="24" Height="24"><Path Style="{StaticResource Ico}" Data="{StaticResource IcoClose}" /></Canvas></Viewbox>
+                    </ui:Button>
                 </StackPanel>
-            </Border>
+            </Grid>
 
             <!-- UPDATE BANNER - only shown for an update found while the app was already running
                  (the startup check installs that case automatically, no banner needed for it). -->
@@ -183,6 +184,7 @@
                                     <ColumnDefinition Width="Auto" />
                                     <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
 
                                 <!-- latency: tiny ascending signal bars + the ms value, both colored by status -->
@@ -208,7 +210,12 @@
                                                Foreground="{StaticResource TextSecondaryBrush}" Margin="0,1,0,0" />
                                 </StackPanel>
 
-                                <Grid Grid.Column="2" Width="20" Height="20" Margin="10,0,0,0">
+                                <ui:Button Grid.Column="2" Style="{StaticResource IconBtn}" Width="26" Height="26" Margin="6,0,0,0"
+                                           Command="{Binding RemoveCommand}" ToolTip="Удалить прокси" Opacity="0.6">
+                                    <Viewbox Width="15" Height="15"><Canvas Width="24" Height="24"><Path Style="{StaticResource Ico}" Data="{StaticResource IcoTrash}" Stroke="{StaticResource TextSecondaryBrush}" /></Canvas></Viewbox>
+                                </ui:Button>
+
+                                <Grid Grid.Column="3" Width="20" Height="20" Margin="8,0,0,0">
                                     <Ellipse Stroke="{Binding IsActive, Converter={StaticResource ActiveToBorderBrush}}"
                                              StrokeThickness="1.5"
                                              Fill="{Binding IsActive, Converter={StaticResource ActiveToAccent}}" />
@@ -256,51 +263,94 @@
                 </Grid>
             </Border>
 
-            <!-- DISCORD STATUS CARD: always visible - one "Запустить" button when Discord is
-                 closed, or a "Перезапустить"/"Закрыть" pair when it's running. -->
-            <Border Background="{StaticResource SurfaceBrush}" BorderBrush="{StaticResource SurfaceBorderBrush}"
-                    BorderThickness="1" CornerRadius="10" Padding="12,10"
-                    Margin="0,0,0,8">
-                <StackPanel>
-                    <TextBlock Text="{Binding DiscordStatusText}" FontSize="13"
-                               Foreground="{StaticResource TextPrimaryBrush}" TextWrapping="Wrap" />
-
-                    <ui:Button Content="Запустить Discord" Appearance="Primary" MinHeight="0"
-                               Command="{Binding StartDiscordCommand}"
-                               Padding="12,7" Margin="0,8,0,0" HorizontalAlignment="Stretch"
-                               HorizontalContentAlignment="Center" FontWeight="Medium"
-                               Visibility="{Binding IsDiscordNotRunning, Converter={StaticResource BoolToVis}}" />
-
-                    <Grid Margin="0,8,0,0" Visibility="{Binding IsDiscordRunning, Converter={StaticResource BoolToVis}}">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-                        <ui:Button Grid.Column="0" Content="Перезапустить" Appearance="Primary" MinHeight="0"
-                                   Command="{Binding RestartDiscordCommand}"
-                                   Padding="10,7" Margin="0,0,5,0" HorizontalAlignment="Stretch"
-                                   HorizontalContentAlignment="Center" FontWeight="Medium" />
-                        <ui:Button Grid.Column="1" Content="Закрыть" MinHeight="0"
-                                   Command="{Binding CloseDiscordCommand}"
-                                   Padding="10,7" Margin="5,0,0,0" HorizontalAlignment="Stretch"
-                                   HorizontalContentAlignment="Center" FontWeight="Medium" />
-                    </Grid>
-                </StackPanel>
-            </Border>
-
-            <!-- BOTTOM ACTIONS -->
+            <!-- TELEGRAM + DISCORD: two square boxes, two buttons each -->
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="8" />
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
-                <ui:Button Grid.Column="0" HorizontalAlignment="Stretch" Content="Добавить" Icon="{ui:SymbolIcon Add24}" MinHeight="0"
-                           Padding="8,6" Command="{Binding AddProfileCommand}" Margin="0,0,5,0" />
-                <ui:Button Grid.Column="1" HorizontalAlignment="Stretch" Content="Проверить" Icon="{ui:SymbolIcon ArrowSync24}" MinHeight="0"
-                           Padding="8,6" Command="{Binding RefreshNowCommand}" Margin="5,0,5,0" />
-                <ui:Button Grid.Column="2" HorizontalAlignment="Stretch" Content="Выход" Icon="{ui:SymbolIcon SignOut24}" MinHeight="0"
-                           Padding="8,6" Command="{Binding ExitCommand}" Margin="5,0,0,0" />
+
+                <Border Grid.Column="0" Background="{StaticResource SurfaceBrush}" BorderBrush="{StaticResource SurfaceBorderBrush}"
+                        BorderThickness="1" CornerRadius="10" Padding="10"
+                        Height="{Binding ActualWidth, RelativeSource={RelativeSource Self}}">
+                    <DockPanel LastChildFill="False">
+                        <Grid DockPanel.Dock="Top">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <Viewbox Width="16" Height="16"><Canvas Width="24" Height="24"><Path Style="{StaticResource Ico}" Data="{StaticResource IcoTelegram}" Stroke="#2AABEE" /></Canvas></Viewbox>
+                            <TextBlock Grid.Column="1" Text="Telegram" FontSize="13" FontWeight="SemiBold" Margin="7,0,0,0"
+                                       VerticalAlignment="Center" Foreground="{StaticResource TextPrimaryBrush}" />
+                            <ui:ToggleSwitch Grid.Column="2" IsChecked="{Binding TgWsEnabled}" />
+                        </Grid>
+                        <TextBlock DockPanel.Dock="Top" Text="{Binding TgWsStatusText}" ToolTip="{Binding TgWsStatusText}"
+                                   FontSize="11" TextTrimming="CharacterEllipsis" Margin="0,4,0,0"
+                                   Foreground="{StaticResource TextSecondaryBrush}" />
+                        <ui:Button DockPanel.Dock="Bottom" Style="{StaticResource BoxBtn}" Margin="0,6,0,0"
+                                   Command="{Binding ShowTgQrCommand}" IsEnabled="{Binding TgWsEnabled}"
+                                   ToolTip="QR-код для телефона в той же Wi-Fi сети">
+                            <StackPanel Orientation="Horizontal">
+                                <Viewbox Width="14" Height="14"><Canvas Width="24" Height="24"><Path Style="{StaticResource Ico}" Data="{StaticResource IcoQr}" /></Canvas></Viewbox>
+                                <TextBlock Text="QR-код" Margin="6,0,0,0" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </ui:Button>
+                        <ui:Button DockPanel.Dock="Bottom" Style="{StaticResource BoxBtn}" Appearance="Primary"
+                                   Command="{Binding AddToTelegramCommand}" IsEnabled="{Binding TgWsEnabled}"
+                                   ToolTip="Добавить прокси в Telegram Desktop">
+                            <StackPanel Orientation="Horizontal">
+                                <Viewbox Width="14" Height="14"><Canvas Width="24" Height="24"><Path Style="{StaticResource Ico}" Data="{StaticResource IcoLink}" Stroke="White" /></Canvas></Viewbox>
+                                <TextBlock Text="Подключить" Margin="6,0,0,0" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </ui:Button>
+                    </DockPanel>
+                </Border>
+
+                <Border Grid.Column="2" Background="{StaticResource SurfaceBrush}" BorderBrush="{StaticResource SurfaceBorderBrush}"
+                        BorderThickness="1" CornerRadius="10" Padding="10"
+                        Height="{Binding ActualWidth, RelativeSource={RelativeSource Self}}">
+                    <DockPanel LastChildFill="False">
+                        <Grid DockPanel.Dock="Top" Height="20">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <Viewbox Width="16" Height="16"><Canvas Width="24" Height="24"><Path Style="{StaticResource Ico}" Data="{StaticResource IcoDiscord}" Stroke="#5865F2" /></Canvas></Viewbox>
+                            <TextBlock Grid.Column="1" Text="Discord" FontSize="13" FontWeight="SemiBold" Margin="7,0,0,0"
+                                       VerticalAlignment="Center" Foreground="{StaticResource TextPrimaryBrush}" />
+                            <Ellipse Grid.Column="2" Width="8" Height="8" VerticalAlignment="Center"
+                                     Fill="{Binding IsDiscordRunning, Converter={StaticResource BoolToDotBrush}}" />
+                        </Grid>
+                        <TextBlock DockPanel.Dock="Top" Text="{Binding DiscordStatusText}" FontSize="11" Margin="0,4,0,0"
+                                   TextTrimming="CharacterEllipsis" Foreground="{StaticResource TextSecondaryBrush}" />
+                        <ui:Button DockPanel.Dock="Bottom" Style="{StaticResource BoxBtn}" Margin="0,6,0,0"
+                                   Command="{Binding CloseDiscordCommand}" IsEnabled="{Binding IsDiscordRunning}">
+                            <StackPanel Orientation="Horizontal">
+                                <Viewbox Width="14" Height="14"><Canvas Width="24" Height="24"><Path Style="{StaticResource Ico}" Data="{StaticResource IcoPower}" /></Canvas></Viewbox>
+                                <TextBlock Text="Закрыть" Margin="6,0,0,0" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </ui:Button>
+                        <Grid DockPanel.Dock="Bottom">
+                            <ui:Button Style="{StaticResource BoxBtn}" Appearance="Primary" Command="{Binding RestartDiscordCommand}"
+                                       Visibility="{Binding IsDiscordRunning, Converter={StaticResource BoolToVis}}">
+                                <StackPanel Orientation="Horizontal">
+                                    <Viewbox Width="14" Height="14"><Canvas Width="24" Height="24"><Path Style="{StaticResource Ico}" Data="{StaticResource IcoRefresh}" Stroke="White" /></Canvas></Viewbox>
+                                    <TextBlock Text="Перезапустить" Margin="6,0,0,0" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </ui:Button>
+                            <ui:Button Style="{StaticResource BoxBtn}" Appearance="Primary" Command="{Binding StartDiscordCommand}"
+                                       Visibility="{Binding IsDiscordNotRunning, Converter={StaticResource BoolToVis}}">
+                                <StackPanel Orientation="Horizontal">
+                                    <Viewbox Width="14" Height="14"><Canvas Width="24" Height="24"><Path Style="{StaticResource Ico}" Data="{StaticResource IcoPlay}" Stroke="White" /></Canvas></Viewbox>
+                                    <TextBlock Text="Запустить" Margin="6,0,0,0" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </ui:Button>
+                        </Grid>
+                    </DockPanel>
+                </Border>
             </Grid>
         </StackPanel>
     </Border>

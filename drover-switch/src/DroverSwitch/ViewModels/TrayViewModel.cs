@@ -277,8 +277,11 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
                 return;
             _isChecking = value;
             OnPropertyChanged();
+            OnPropertyChanged(nameof(IsNotChecking));
         }
     }
+
+    public bool IsNotChecking => !IsChecking;
 
     private bool _isDiscordRunning;
     public bool IsDiscordRunning
@@ -304,7 +307,7 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
         ? "Discord запущен — новый прокси применится после перезапуска."
         : "Изменения применяются при следующем запуске Discord.";
 
-    public string DiscordStatusText => IsDiscordRunning ? "Discord сейчас запущен." : "Discord сейчас закрыт.";
+    public string DiscordStatusText => IsDiscordRunning ? "Запущен" : "Закрыт";
 
     private bool _updateAvailable;
     public bool UpdateAvailable
@@ -452,6 +455,10 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
 
     private void RemoveProfile(ProfileItemViewModel item)
     {
+        if (MessageBox.Show($"Удалить прокси «{item.Name}»?", "Discord Drover",
+                MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+            return;
+
         _settings.Profiles.RemoveAll(p => p.Name.Equals(item.Name, StringComparison.OrdinalIgnoreCase));
         if (_settings.ActiveProfileName?.Equals(item.Name, StringComparison.OrdinalIgnoreCase) == true)
             SetActiveProfileName(null);

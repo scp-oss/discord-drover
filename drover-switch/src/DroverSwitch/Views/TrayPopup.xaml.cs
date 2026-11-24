@@ -81,17 +81,10 @@ public partial class TrayPopup : Wpf.Ui.Controls.FluentWindow
 
     private void TrayPopup_Deactivated(object sender, EventArgs e)
     {
-        // the popup hides on focus loss before the Worker field gets LostFocus - push its text first
+        // the popup hides on focus loss before a text field gets LostFocus - push its text first
         if (Keyboard.FocusedElement is System.Windows.Controls.TextBox tb)
             tb.GetBindingExpression(System.Windows.Controls.TextBox.TextProperty)?.UpdateSource();
         Hide();
-    }
-
-    private void TgWorkerBox_KeyDown(object sender, KeyEventArgs e)
-    {
-        if (e.Key != Key.Enter || sender is not System.Windows.Controls.TextBox tb) return;
-        tb.GetBindingExpression(System.Windows.Controls.TextBox.TextProperty)?.UpdateSource();
-        e.Handled = true;
     }
 
     private void OnEditProfileRequested(ProxyProfile? existing)
