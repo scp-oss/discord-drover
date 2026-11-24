@@ -68,7 +68,7 @@
             <Setter Property="BorderThickness" Value="0" />
             <Setter Property="Cursor" Value="Hand" />
             <Setter Property="Focusable" Value="False" />
-            <Setter Property="Tag" Value="#26FFFFFF" />
+            <Setter Property="Padding" Value="0" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
@@ -77,7 +77,7 @@
                                     BorderBrush="{TemplateBinding BorderBrush}"
                                     BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="8" />
                             <Border x:Name="hl" Background="#FFFFFF" CornerRadius="8" Opacity="0" />
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            <ContentPresenter Margin="{TemplateBinding Padding}" HorizontalAlignment="Center" VerticalAlignment="Center" />
                         </Grid>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
@@ -142,7 +142,7 @@
                 </Border>
 
                 <StackPanel Grid.Column="1" Margin="12,0,0,0">
-                    <TextBlock Text="Discord Drover" FontSize="19" FontWeight="SemiBold"
+                    <TextBlock Text="Discord Drover" FontSize="17" FontWeight="SemiBold"
                                Foreground="{StaticResource TextPrimaryBrush}" />
                     <TextBlock Text="{Binding StatusHint}" FontSize="12" TextWrapping="Wrap"
                                Foreground="{StaticResource TextSecondaryBrush}" Margin="0,2,0,0" />
@@ -155,6 +155,14 @@
                 </StackPanel>
 
                 <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Top" Margin="6,0,-4,0">
+                    <!-- "+ Добавить": the one accented action in the header -->
+                    <Button Style="{StaticResource BoxBtnPrimary}" Height="30" Padding="10,0" Margin="0,0,4,0"
+                            Command="{Binding AddProfileCommand}" ToolTip="Добавить прокси">
+                        <StackPanel Orientation="Horizontal">
+                            <Viewbox Width="14" Height="14"><Canvas Width="24" Height="24"><Path Style="{StaticResource Ico}" StrokeThickness="3" Stroke="White" Data="{StaticResource IcoPlus}" /></Canvas></Viewbox>
+                            <TextBlock Text="Добавить" Foreground="White" FontSize="12" FontWeight="SemiBold" Margin="5,0,0,0" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
                     <Grid Width="30" Height="30">
                         <Button Style="{StaticResource IconBtn}" Command="{Binding RefreshNowCommand}" ToolTip="Проверить прокси"
                                    Visibility="{Binding IsNotChecking, Converter={StaticResource BoolToVis}}">
@@ -163,9 +171,6 @@
                         <ui:ProgressRing Width="16" Height="16" HorizontalAlignment="Center" VerticalAlignment="Center"
                                          Visibility="{Binding IsChecking, Converter={StaticResource BoolToVis}}" />
                     </Grid>
-                    <Button Style="{StaticResource IconBtn}" Command="{Binding AddProfileCommand}" ToolTip="Добавить прокси">
-                        <Viewbox Width="16" Height="16"><Canvas Width="24" Height="24"><Path Style="{StaticResource Ico}" Data="{StaticResource IcoPlus}" /></Canvas></Viewbox>
-                    </Button>
                     <Button Style="{StaticResource IconBtn}" Command="{Binding ExitCommand}" ToolTip="Выход">
                         <Viewbox Width="16" Height="16"><Canvas Width="24" Height="24"><Path Style="{StaticResource Ico}" Data="{StaticResource IcoClose}" /></Canvas></Viewbox>
                     </Button>
