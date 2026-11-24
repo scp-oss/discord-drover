@@ -109,6 +109,14 @@ public partial class App : Application
         var openMenuItem = new MenuItem { Header = "Открыть" };
         openMenuItem.Click += (_, _) => _popup?.ToggleNearTray();
 
+        // The add dialog is owned by the popup (an owner must have been shown), so open the popup first.
+        var addMenuItem = new MenuItem { Header = "Добавить прокси..." };
+        addMenuItem.Click += (_, _) =>
+        {
+            if (_popup is { IsVisible: false }) _popup.ToggleNearTray();
+            _viewModel!.AddProfileCommand.Execute(null);
+        };
+
         _trayIcon.ContextMenu = new ContextMenu
         {
             Items =
@@ -116,6 +124,9 @@ public partial class App : Application
                 new MenuItem { Header = $"Версия: {GetVersionText()}", IsEnabled = false },
                 new Separator(),
                 openMenuItem,
+                addMenuItem,
+                new MenuItem { Header = "Проверить обновления", Command = _viewModel.CheckUpdatesNowCommand },
+                new Separator(),
                 new MenuItem { Header = "Удалить Discord Drover", Command = _viewModel.UninstallCommand },
                 new Separator(),
                 new MenuItem { Header = "Выход", Command = _viewModel.ExitCommand },

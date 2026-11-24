@@ -51,6 +51,7 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
     public RelayCommand RestartDiscordCommand { get; }
     public RelayCommand UninstallCommand { get; }
     public RelayCommand ApplyUpdateCommand { get; }
+    public RelayCommand CheckUpdatesNowCommand { get; }
     public RelayCommand ExitCommand { get; }
     public RelayCommand ShowTgQrCommand { get; }
     public RelayCommand AddToTelegramCommand { get; }
@@ -77,6 +78,7 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
         RestartDiscordCommand = new RelayCommand(_ => RestartDiscord());
         UninstallCommand = new RelayCommand(_ => UninstallEverything());
         ApplyUpdateCommand = new RelayCommand(_ => ApplyUpdate());
+        CheckUpdatesNowCommand = new RelayCommand(async _ => await CheckUpdatesNowAsync());
         ExitCommand = new RelayCommand(_ => Application.Current.Shutdown());
         ShowTgQrCommand = new RelayCommand(_ => ShowTgQr());
         AddToTelegramCommand = new RelayCommand(_ => AddToTelegram());
@@ -600,6 +602,46 @@ public class TrayViewModel : INotifyPropertyChanged, IDisposable
         // Fetch it ahead of time so clicking the banner is a near-instant restart-and-update
         // instead of making the user wait through a download first.
         _ = EnsureSetupDownloadedAsync(result.SetupDownloadUrl, result.Tag);
+    }
+
+    private bool _manualUpdateCheckRunning;
+
+    /// <summary>"Проверить обновления" from the tray menu: the user asked for it explicitly, so a
+    /// found update installs right away (same as the startup check); otherwise a toast says the
+    /// installed version is the latest.</summary>
+    private async Task CheckUpdatesNowAsync()
+    {
+        if (_manualUpdateCheckRunning) return;
+        _manualUpdateCheckRunning = true;
+        try
+        {
+            NotificationRequested?.Invoke("Проверяю обновления...");
+            var result = await UpdateChecker.CheckAsync();
+            if (!result.HasUpdate)
+            {
+                var v = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version;
+                NotificationRequested?.Invoke(
+                    $"Обновлений нет: установлена последняя версия{(v is null ? "" : $" {v.Major}.{v.Minor}.{v.Build}")}.");
+                return;
+            }
+
+            LatestVersionTag = result.Tag;
+            _pendingSetupUrl = result.SetupDownloadUrl;
+            _pendingSetupTag = result.Tag;
+            NotificationRequested?.Invoke($"Найдено обновление DroverSwitch {result.Tag} - устанавливается...");
+            var path = await EnsureSetupDownloadedAsync(result.SetupDownloadUrl, result.Tag);
+            if (path is not null)
+                LaunchSetupAndShutdown(path);
+            else
+            {
+                UpdateAvailable = true;
+                NotificationRequested?.Invoke("Не удалось скачать обновление. Попробуйте ещё раз чуть позже.");
+            }
+        }
+        finally
+        {
+            _manualUpdateCheckRunning = false;
+        }
     }
 
     /// <summary>Called when the user clicks the "Доступна новая версия" banner. Reuses whatever the
