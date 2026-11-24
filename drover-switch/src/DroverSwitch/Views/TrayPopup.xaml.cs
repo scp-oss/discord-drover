@@ -26,6 +26,31 @@ public partial class TrayPopup : Wpf.Ui.Controls.FluentWindow
             new TgQrDialog(candidates, selected, TgWsService.LinkFor, _viewModel.SetTgLanIp) { Owner = this }.ShowDialog();
     }
 
+    private const double ScreenGap = 12;
+    private const double MinListHeight = 120;
+
+    /// <summary>
+    /// Caps the proxy list so the whole popup fits the work area (the list scrolls instead of
+    /// pushing the bottom buttons off-screen), and keeps the popup anchored above the tray.
+    /// Re-run whenever the size changes: profiles added, Telegram block expanded, update banner.
+    /// </summary>
+    private void FitToWorkArea()
+    {
+        var workArea = SystemParameters.WorkArea;
+        var rest = ActualHeight - ProfilesScroll.ActualHeight;   // everything except the list
+        var max = Math.Max(MinListHeight, workArea.Height - 2 * ScreenGap - rest);
+        if (Math.Abs(ProfilesScroll.MaxHeight - max) > 0.5)
+            ProfilesScroll.MaxHeight = max;
+
+        Left = workArea.Right - ActualWidth - ScreenGap;
+        Top = Math.Max(workArea.Top + ScreenGap, workArea.Bottom - ActualHeight - ScreenGap);
+    }
+
+    private void TrayPopup_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        if (IsVisible) FitToWorkArea();
+    }
+
     /// <summary>Shows the popup anchored near the system tray, or hides it if it's already open.</summary>
     public void ToggleNearTray()
     {
@@ -48,9 +73,8 @@ public partial class TrayPopup : Wpf.Ui.Controls.FluentWindow
         Top = workArea.Bottom - ActualHeight - 12;
 
         Show();
-
-        Left = workArea.Right - ActualWidth - 12;
-        Top = workArea.Bottom - ActualHeight - 12;
+        UpdateLayout();
+        FitToWorkArea();
 
         Activate();
     }
