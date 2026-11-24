@@ -86,10 +86,22 @@
         <Border.Effect>
             <DropShadowEffect Color="Black" BlurRadius="28" ShadowDepth="8" Opacity="0.45" />
         </Border.Effect>
-        <StackPanel>
+        <!-- Rubber layout: header/banner on top and the settings + Telegram/Discord boxes at the
+             bottom keep their size; the proxy list (row 2, *) takes whatever is left and scrolls.
+             The window's MaxHeight is set to the screen work area in TrayPopup.xaml.cs, so with a
+             long list the window stops growing and only the list shrinks. -->
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
 
             <!-- HEADER -->
-            <Grid Margin="0,0,0,14">
+            <Grid Grid.Row="0" Margin="0,0,0,14">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="*" />
@@ -135,7 +147,7 @@
 
             <!-- UPDATE BANNER - only shown for an update found while the app was already running
                  (the startup check installs that case automatically, no banner needed for it). -->
-            <ui:Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" MinHeight="0"
+            <ui:Button Grid.Row="1" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" MinHeight="0"
                        Padding="12,10" Margin="0,0,0,10" CornerRadius="10"
                        Background="{StaticResource AccentGradientBrush}"
                        Command="{Binding ApplyUpdateCommand}"
@@ -155,7 +167,7 @@
 
             <!-- PROXY LIST: scrolls on its own; TrayPopup.xaml.cs caps its height so the whole popup
                  (and the buttons below it) always fits the screen's work area. -->
-            <ScrollViewer x:Name="ProfilesScroll" VerticalScrollBarVisibility="Auto"
+            <ScrollViewer x:Name="ProfilesScroll" Grid.Row="2" VerticalScrollBarVisibility="Auto"
                           HorizontalScrollBarVisibility="Disabled" PanningMode="VerticalOnly"
                           Margin="0,0,0,8">
             <ItemsControl ItemsSource="{Binding Profiles}" Margin="0,0,6,0">
@@ -231,7 +243,7 @@
             </ScrollViewer>
 
             <!-- AUTO SWITCH -->
-            <Border Background="{StaticResource SurfaceBrush}" BorderBrush="{StaticResource SurfaceBorderBrush}"
+            <Border Grid.Row="3" Background="{StaticResource SurfaceBrush}" BorderBrush="{StaticResource SurfaceBorderBrush}"
                     BorderThickness="1" CornerRadius="10" Padding="12,8" Margin="0,2,0,10">
                 <Grid>
                     <Grid.ColumnDefinitions>
@@ -250,7 +262,7 @@
             </Border>
 
             <!-- AUTOSTART -->
-            <Border Background="{StaticResource SurfaceBrush}" BorderBrush="{StaticResource SurfaceBorderBrush}"
+            <Border Grid.Row="4" Background="{StaticResource SurfaceBrush}" BorderBrush="{StaticResource SurfaceBorderBrush}"
                     BorderThickness="1" CornerRadius="10" Padding="12,8" Margin="0,0,0,10">
                 <Grid>
                     <Grid.ColumnDefinitions>
@@ -264,7 +276,7 @@
             </Border>
 
             <!-- TELEGRAM + DISCORD: two square boxes, two buttons each -->
-            <Grid>
+            <Grid Grid.Row="5">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="8" />
@@ -352,6 +364,6 @@
                     </DockPanel>
                 </Border>
             </Grid>
-        </StackPanel>
+        </Grid>
     </Border>
 </ui:FluentWindow>

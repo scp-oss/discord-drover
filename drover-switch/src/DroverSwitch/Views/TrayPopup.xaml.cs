@@ -27,20 +27,18 @@ public partial class TrayPopup : Wpf.Ui.Controls.FluentWindow
     }
 
     private const double ScreenGap = 12;
-    private const double MinListHeight = 120;
 
     /// <summary>
-    /// Caps the proxy list so the whole popup fits the work area (the list scrolls instead of
-    /// pushing the bottom buttons off-screen), and keeps the popup anchored above the tray.
-    /// Re-run whenever the size changes: profiles added, Telegram block expanded, update banner.
+    /// Limits the window to the screen work area (the XAML grid then shrinks only the proxy list,
+    /// which scrolls, while the blocks above and below it stay fixed) and keeps the popup anchored
+    /// above the tray. Re-run on every size change: profiles added, Telegram toggled, update banner.
     /// </summary>
     private void FitToWorkArea()
     {
         var workArea = SystemParameters.WorkArea;
-        var rest = ActualHeight - ProfilesScroll.ActualHeight;   // everything except the list
-        var max = Math.Max(MinListHeight, workArea.Height - 2 * ScreenGap - rest);
-        if (Math.Abs(ProfilesScroll.MaxHeight - max) > 0.5)
-            ProfilesScroll.MaxHeight = max;
+        var max = workArea.Height - 2 * ScreenGap;
+        if (Math.Abs(MaxHeight - max) > 0.5)
+            MaxHeight = max;
 
         Left = workArea.Right - ActualWidth - ScreenGap;
         Top = Math.Max(workArea.Top + ScreenGap, workArea.Bottom - ActualHeight - ScreenGap);
@@ -72,6 +70,7 @@ public partial class TrayPopup : Wpf.Ui.Controls.FluentWindow
         Left = workArea.Right - ActualWidth - 12;
         Top = workArea.Bottom - ActualHeight - 12;
 
+        MaxHeight = workArea.Height - 2 * ScreenGap;
         Show();
         UpdateLayout();
         FitToWorkArea();
