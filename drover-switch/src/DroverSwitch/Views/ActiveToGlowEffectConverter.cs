@@ -20,7 +20,7 @@ public class ActiveToGlowEffectConverter : IValueConverter
             Color = Color.FromRgb(0x3B, 0x82, 0xF6),
             BlurRadius = 18,
             ShadowDepth = 0,
-            Opacity = 0.45,
+            Opacity = 0.6,
         };
     }
 

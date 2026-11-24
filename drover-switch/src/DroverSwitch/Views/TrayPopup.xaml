@@ -58,26 +58,53 @@
             <Setter Property="StrokeEndLineCap" Value="Round" />
             <Setter Property="StrokeLineJoin" Value="Round" />
         </Style>
-        <!-- square icon-only button for the header / rows -->
-        <Style x:Key="IconBtn" TargetType="ui:Button">
-            <Setter Property="Appearance" Value="Transparent" />
+        <!-- Icon-only buttons on our own template: WPF-UI's Transparent/Standard appearances fell
+             back to light-theme fills here, so the colors are set explicitly. -->
+        <Style x:Key="IconBtn" TargetType="Button">
             <Setter Property="Width" Value="30" />
             <Setter Property="Height" Value="30" />
-            <Setter Property="MinWidth" Value="0" />
-            <Setter Property="MinHeight" Value="0" />
-            <Setter Property="Padding" Value="0" />
-            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="Transparent" />
             <Setter Property="BorderThickness" Value="0" />
-            <Setter Property="HorizontalContentAlignment" Value="Center" />
-            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="Tag" Value="#26FFFFFF" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Grid>
+                            <Border x:Name="bd" Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="8" />
+                            <Border x:Name="hl" Background="#FFFFFF" CornerRadius="8" Opacity="0" />
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="hl" Property="Opacity" Value="0.10" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="hl" Property="Opacity" Value="0.20" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.35" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
-        <Style x:Key="BoxBtn" TargetType="ui:Button">
+        <Style x:Key="BoxBtn" TargetType="Button" BasedOn="{StaticResource IconBtn}">
+            <Setter Property="Width" Value="NaN" />
+            <Setter Property="Height" Value="34" />
             <Setter Property="HorizontalAlignment" Value="Stretch" />
-            <Setter Property="HorizontalContentAlignment" Value="Center" />
-            <Setter Property="MinHeight" Value="0" />
-            <Setter Property="Padding" Value="8,6" />
-            <Setter Property="CornerRadius" Value="8" />
-            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Background" Value="#1F2A44" />
+            <Setter Property="BorderBrush" Value="#2F3B5A" />
+            <Setter Property="BorderThickness" Value="1" />
+        </Style>
+        <Style x:Key="BoxBtnPrimary" TargetType="Button" BasedOn="{StaticResource BoxBtn}">
+            <Setter Property="Background" Value="{StaticResource AccentGradientBrush}" />
+            <Setter Property="BorderBrush" Value="#4F7FF0" />
         </Style>
     </ui:FluentWindow.Resources>
 
@@ -127,21 +154,21 @@
                     </StackPanel>
                 </StackPanel>
 
-                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Top" Margin="6,-4,-6,0">
+                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Top" Margin="6,0,-4,0">
                     <Grid Width="30" Height="30">
-                        <ui:Button Style="{StaticResource IconBtn}" Command="{Binding RefreshNowCommand}" ToolTip="Проверить прокси"
+                        <Button Style="{StaticResource IconBtn}" Command="{Binding RefreshNowCommand}" ToolTip="Проверить прокси"
                                    Visibility="{Binding IsNotChecking, Converter={StaticResource BoolToVis}}">
                             <Viewbox Width="16" Height="16"><Canvas Width="24" Height="24"><Path Style="{StaticResource Ico}" Data="{StaticResource IcoRefresh}" /></Canvas></Viewbox>
-                        </ui:Button>
+                        </Button>
                         <ui:ProgressRing Width="16" Height="16" HorizontalAlignment="Center" VerticalAlignment="Center"
                                          Visibility="{Binding IsChecking, Converter={StaticResource BoolToVis}}" />
                     </Grid>
-                    <ui:Button Style="{StaticResource IconBtn}" Command="{Binding AddProfileCommand}" ToolTip="Добавить прокси">
+                    <Button Style="{StaticResource IconBtn}" Command="{Binding AddProfileCommand}" ToolTip="Добавить прокси">
                         <Viewbox Width="16" Height="16"><Canvas Width="24" Height="24"><Path Style="{StaticResource Ico}" Data="{StaticResource IcoPlus}" /></Canvas></Viewbox>
-                    </ui:Button>
-                    <ui:Button Style="{StaticResource IconBtn}" Command="{Binding ExitCommand}" ToolTip="Выход">
+                    </Button>
+                    <Button Style="{StaticResource IconBtn}" Command="{Binding ExitCommand}" ToolTip="Выход">
                         <Viewbox Width="16" Height="16"><Canvas Width="24" Height="24"><Path Style="{StaticResource Ico}" Data="{StaticResource IcoClose}" /></Canvas></Viewbox>
-                    </ui:Button>
+                    </Button>
                 </StackPanel>
             </Grid>
 
@@ -174,7 +201,7 @@
                 <ItemsControl.ItemTemplate>
                     <DataTemplate DataType="{x:Type vm:ProfileItemViewModel}">
                         <ui:Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" MinHeight="0" Margin="0,3" Padding="12,8"
-                                   CornerRadius="10" BorderThickness="1.5"
+                                   CornerRadius="10" BorderThickness="2"
                                    Background="{Binding IsActive, Converter={StaticResource ActiveToBackground}}"
                                    BorderBrush="{Binding IsActive, Converter={StaticResource ActiveToBorderBrush}}"
                                    Effect="{Binding IsActive, Converter={StaticResource ActiveToGlow}}"
@@ -195,7 +222,6 @@
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="Auto" />
                                     <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="Auto" />
                                     <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
 
@@ -222,19 +248,11 @@
                                                Foreground="{StaticResource TextSecondaryBrush}" Margin="0,1,0,0" />
                                 </StackPanel>
 
-                                <ui:Button Grid.Column="2" Style="{StaticResource IconBtn}" Width="26" Height="26" Margin="6,0,0,0"
+                                <Button Grid.Column="2" Style="{StaticResource IconBtn}" Width="26" Height="26" Margin="6,0,0,0"
                                            Command="{Binding RemoveCommand}" ToolTip="Удалить прокси" Opacity="0.6">
                                     <Viewbox Width="15" Height="15"><Canvas Width="24" Height="24"><Path Style="{StaticResource Ico}" Data="{StaticResource IcoTrash}" Stroke="{StaticResource TextSecondaryBrush}" /></Canvas></Viewbox>
-                                </ui:Button>
+                                </Button>
 
-                                <Grid Grid.Column="3" Width="20" Height="20" Margin="8,0,0,0">
-                                    <Ellipse Stroke="{Binding IsActive, Converter={StaticResource ActiveToBorderBrush}}"
-                                             StrokeThickness="1.5"
-                                             Fill="{Binding IsActive, Converter={StaticResource ActiveToAccent}}" />
-                                    <ui:SymbolIcon Symbol="Checkmark24" FontSize="11" Foreground="White"
-                                                   HorizontalAlignment="Center" VerticalAlignment="Center"
-                                                   Visibility="{Binding IsActive, Converter={StaticResource BoolToVis}}" />
-                                </Grid>
                             </Grid>
                         </ui:Button>
                     </DataTemplate>
@@ -275,19 +293,17 @@
                 </Grid>
             </Border>
 
-            <!-- TELEGRAM + DISCORD: two square boxes, two buttons each -->
+            <!-- TELEGRAM + DISCORD: two boxes, two icon buttons each (tooltips name the action) -->
             <Grid Grid.Row="5">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="8" />
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
-
                 <Border Grid.Column="0" Background="{StaticResource SurfaceBrush}" BorderBrush="{StaticResource SurfaceBorderBrush}"
-                        BorderThickness="1" CornerRadius="10" Padding="10"
-                        Height="{Binding ActualWidth, RelativeSource={RelativeSource Self}}">
-                    <DockPanel LastChildFill="False">
-                        <Grid DockPanel.Dock="Top">
+                        BorderThickness="1" CornerRadius="10" Padding="10">
+                    <StackPanel>
+                        <Grid Height="22">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="*" />
@@ -298,33 +314,29 @@
                                        VerticalAlignment="Center" Foreground="{StaticResource TextPrimaryBrush}" />
                             <ui:ToggleSwitch Grid.Column="2" IsChecked="{Binding TgWsEnabled}" />
                         </Grid>
-                        <TextBlock DockPanel.Dock="Top" Text="{Binding TgWsStatusText}" ToolTip="{Binding TgWsStatusText}"
-                                   FontSize="11" TextTrimming="CharacterEllipsis" Margin="0,4,0,0"
-                                   Foreground="{StaticResource TextSecondaryBrush}" />
-                        <ui:Button DockPanel.Dock="Bottom" Style="{StaticResource BoxBtn}" Margin="0,6,0,0"
-                                   Command="{Binding ShowTgQrCommand}" IsEnabled="{Binding TgWsEnabled}"
-                                   ToolTip="QR-код для телефона в той же Wi-Fi сети">
-                            <StackPanel Orientation="Horizontal">
-                                <Viewbox Width="14" Height="14"><Canvas Width="24" Height="24"><Path Style="{StaticResource Ico}" Data="{StaticResource IcoQr}" /></Canvas></Viewbox>
-                                <TextBlock Text="QR-код" Margin="6,0,0,0" VerticalAlignment="Center" />
-                            </StackPanel>
-                        </ui:Button>
-                        <ui:Button DockPanel.Dock="Bottom" Style="{StaticResource BoxBtn}" Appearance="Primary"
-                                   Command="{Binding AddToTelegramCommand}" IsEnabled="{Binding TgWsEnabled}"
-                                   ToolTip="Добавить прокси в Telegram Desktop">
-                            <StackPanel Orientation="Horizontal">
-                                <Viewbox Width="14" Height="14"><Canvas Width="24" Height="24"><Path Style="{StaticResource Ico}" Data="{StaticResource IcoLink}" Stroke="White" /></Canvas></Viewbox>
-                                <TextBlock Text="Подключить" Margin="6,0,0,0" VerticalAlignment="Center" />
-                            </StackPanel>
-                        </ui:Button>
-                    </DockPanel>
+                        <TextBlock Text="{Binding TgWsStatusText}" ToolTip="{Binding TgWsStatusText}" FontSize="11" Margin="0,4,0,0"
+                                   TextTrimming="CharacterEllipsis" Foreground="{StaticResource TextSecondaryBrush}" />
+                        <Grid Margin="0,8,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="6" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Button Grid.Column="0" Style="{StaticResource BoxBtnPrimary}" Command="{Binding AddToTelegramCommand}"
+                                    IsEnabled="{Binding TgWsEnabled}" ToolTip="Добавить прокси в Telegram Desktop">
+                                <Viewbox Width="16" Height="16"><Canvas Width="24" Height="24"><Path Style="{StaticResource Ico}" Data="{StaticResource IcoPlus}" Stroke="White" /></Canvas></Viewbox>
+                            </Button>
+                            <Button Grid.Column="2" Style="{StaticResource BoxBtn}" Command="{Binding ShowTgQrCommand}"
+                                    IsEnabled="{Binding TgWsEnabled}" ToolTip="QR-код для телефона в той же Wi-Fi сети">
+                                <Viewbox Width="16" Height="16"><Canvas Width="24" Height="24"><Path Style="{StaticResource Ico}" Data="{StaticResource IcoQr}" /></Canvas></Viewbox>
+                            </Button>
+                        </Grid>
+                    </StackPanel>
                 </Border>
-
                 <Border Grid.Column="2" Background="{StaticResource SurfaceBrush}" BorderBrush="{StaticResource SurfaceBorderBrush}"
-                        BorderThickness="1" CornerRadius="10" Padding="10"
-                        Height="{Binding ActualWidth, RelativeSource={RelativeSource Self}}">
-                    <DockPanel LastChildFill="False">
-                        <Grid DockPanel.Dock="Top" Height="20">
+                        BorderThickness="1" CornerRadius="10" Padding="10">
+                    <StackPanel>
+                        <Grid Height="22">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="*" />
@@ -333,35 +345,32 @@
                             <Viewbox Width="16" Height="16"><Canvas Width="24" Height="24"><Path Style="{StaticResource Ico}" Data="{StaticResource IcoDiscord}" Stroke="#5865F2" /></Canvas></Viewbox>
                             <TextBlock Grid.Column="1" Text="Discord" FontSize="13" FontWeight="SemiBold" Margin="7,0,0,0"
                                        VerticalAlignment="Center" Foreground="{StaticResource TextPrimaryBrush}" />
-                            <Ellipse Grid.Column="2" Width="8" Height="8" VerticalAlignment="Center"
-                                     Fill="{Binding IsDiscordRunning, Converter={StaticResource BoolToDotBrush}}" />
+                            <Ellipse Grid.Column="2" Width="8" Height="8" VerticalAlignment="Center" Fill="{Binding IsDiscordRunning, Converter={StaticResource BoolToDotBrush}}" />
                         </Grid>
-                        <TextBlock DockPanel.Dock="Top" Text="{Binding DiscordStatusText}" FontSize="11" Margin="0,4,0,0"
+                        <TextBlock Text="{Binding DiscordStatusText}" ToolTip="{Binding DiscordStatusText}" FontSize="11" Margin="0,4,0,0"
                                    TextTrimming="CharacterEllipsis" Foreground="{StaticResource TextSecondaryBrush}" />
-                        <ui:Button DockPanel.Dock="Bottom" Style="{StaticResource BoxBtn}" Margin="0,6,0,0"
-                                   Command="{Binding CloseDiscordCommand}" IsEnabled="{Binding IsDiscordRunning}">
-                            <StackPanel Orientation="Horizontal">
-                                <Viewbox Width="14" Height="14"><Canvas Width="24" Height="24"><Path Style="{StaticResource Ico}" Data="{StaticResource IcoPower}" /></Canvas></Viewbox>
-                                <TextBlock Text="Закрыть" Margin="6,0,0,0" VerticalAlignment="Center" />
-                            </StackPanel>
-                        </ui:Button>
-                        <Grid DockPanel.Dock="Bottom">
-                            <ui:Button Style="{StaticResource BoxBtn}" Appearance="Primary" Command="{Binding RestartDiscordCommand}"
-                                       Visibility="{Binding IsDiscordRunning, Converter={StaticResource BoolToVis}}">
-                                <StackPanel Orientation="Horizontal">
-                                    <Viewbox Width="14" Height="14"><Canvas Width="24" Height="24"><Path Style="{StaticResource Ico}" Data="{StaticResource IcoRefresh}" Stroke="White" /></Canvas></Viewbox>
-                                    <TextBlock Text="Перезапустить" Margin="6,0,0,0" VerticalAlignment="Center" />
-                                </StackPanel>
-                            </ui:Button>
-                            <ui:Button Style="{StaticResource BoxBtn}" Appearance="Primary" Command="{Binding StartDiscordCommand}"
-                                       Visibility="{Binding IsDiscordNotRunning, Converter={StaticResource BoolToVis}}">
-                                <StackPanel Orientation="Horizontal">
-                                    <Viewbox Width="14" Height="14"><Canvas Width="24" Height="24"><Path Style="{StaticResource Ico}" Data="{StaticResource IcoPlay}" Stroke="White" /></Canvas></Viewbox>
-                                    <TextBlock Text="Запустить" Margin="6,0,0,0" VerticalAlignment="Center" />
-                                </StackPanel>
-                            </ui:Button>
+                        <Grid Margin="0,8,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="6" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Button Grid.Column="0" Style="{StaticResource BoxBtnPrimary}" Command="{Binding RestartDiscordCommand}"
+                                    ToolTip="Перезапустить Discord"
+                                    Visibility="{Binding IsDiscordRunning, Converter={StaticResource BoolToVis}}">
+                                <Viewbox Width="16" Height="16"><Canvas Width="24" Height="24"><Path Style="{StaticResource Ico}" Data="{StaticResource IcoRefresh}" Stroke="White" /></Canvas></Viewbox>
+                            </Button>
+                            <Button Grid.Column="0" Style="{StaticResource BoxBtnPrimary}" Command="{Binding StartDiscordCommand}"
+                                    ToolTip="Запустить Discord"
+                                    Visibility="{Binding IsDiscordNotRunning, Converter={StaticResource BoolToVis}}">
+                                <Viewbox Width="14" Height="14"><Canvas Width="24" Height="24"><Path Style="{StaticResource Ico}" Data="{StaticResource IcoPlay}" Stroke="White" /></Canvas></Viewbox>
+                            </Button>
+                            <Button Grid.Column="2" Style="{StaticResource BoxBtn}" Command="{Binding CloseDiscordCommand}"
+                                    IsEnabled="{Binding IsDiscordRunning}" ToolTip="Закрыть Discord">
+                                <Viewbox Width="16" Height="16"><Canvas Width="24" Height="24"><Path Style="{StaticResource Ico}" Data="{StaticResource IcoPower}" /></Canvas></Viewbox>
+                            </Button>
                         </Grid>
-                    </DockPanel>
+                    </StackPanel>
                 </Border>
             </Grid>
         </Grid>

@@ -8,7 +8,7 @@ namespace DroverSwitch.Views;
 /// <summary>Accent-blue border for the active profile's card, a subtle neutral border otherwise.</summary>
 public class ActiveToBorderBrushConverter : IValueConverter
 {
-    private static readonly SolidColorBrush ActiveBrush = Freeze(Color.FromRgb(0x3B, 0x82, 0xF6));
+    private static readonly SolidColorBrush ActiveBrush = Freeze(Color.FromRgb(0x5B, 0x9B, 0xFF));
     private static readonly SolidColorBrush InactiveBrush = Freeze(Color.FromRgb(0x27, 0x30, 0x45));
 
     private static SolidColorBrush Freeze(Color color)
